@@ -1,0 +1,32 @@
+[build-system]
+requires = [
+    "setuptools >= 65",
+    "setuptools_scm[toml]",
+    "wheel",
+]
+
+[project]
+name = "mypackage"
+authors = [
+    {name = "Matteo Ravasi", email = "matteo.ravasi@kaust.edu.sa"},
+]
+description = "My project description."
+readme = "README.md"
+requires-python = ">=3.8"
+keywords = ["inverse problems", "deep learning", "seismic"]
+license = {text = "BSD 3-Clause License"}
+classifiers = [
+        "Intended Audience :: Science/Research",
+        "Natural Language :: English",
+        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
+        "Topic :: Scientific/Engineering :: Mathematics",
+    ]
+dependencies = [
+        "numpy >= 1.15.0",
+        "pylops >= 2.0.0",
+    ]
+dynamic = ["version"]
+
+[tool.setuptools.packages]
+find = {}
