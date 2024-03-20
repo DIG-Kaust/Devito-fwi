@@ -15,10 +15,10 @@ db.sqlite3
 # Build #
 build
 dist
-package.egg-info/
+devitofwi.egg-info/
 
 # setuptools_scm generated  #
-package/version.py 
+devitofwi/version.py
 
 # Development #
 .ipynb_checkpoints/

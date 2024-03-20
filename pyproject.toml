@@ -6,14 +6,14 @@ requires = [
 ]
 
 [project]
-name = "mypackage"
+name = "devitofwi"
 authors = [
     {name = "Matteo Ravasi", email = "matteo.ravasi@kaust.edu.sa"},
 ]
-description = "My project description."
+description = "A collection of codes to perform FWI with Devito."
 readme = "README.md"
 requires-python = ">=3.8"
-keywords = ["inverse problems", "deep learning", "seismic"]
+keywords = ["seismic", "optimization", "full waveform", ]
 license = {text = "BSD 3-Clause License"}
 classifiers = [
         "Intended Audience :: Science/Research",
@@ -24,6 +24,8 @@ classifiers = [
     ]
 dependencies = [
         "numpy >= 1.15.0",
+        "matplotlib",
+        "devito",
         "pylops >= 2.0.0",
     ]
 dynamic = ["version"]
