@@ -9,13 +9,11 @@ from pylops.utils import deps
 from pylops.utils.typing import DTypeLike, InputDimsLike, NDArray, SamplingLike
 from tqdm.notebook import tqdm
 
-devito_message = deps.devito_import("the twoway module")
 
-if devito_message is None:
-    from devito import Function
-    from examples.seismic import AcquisitionGeometry, Model, Receiver
-    from examples.seismic.acoustic import AcousticWaveSolver
-
+from devito import Function
+from examples.seismic import AcquisitionGeometry, Model, Receiver
+from examples.seismic.acoustic import AcousticWaveSolver
+from devitofwi.source import CustomSource
 
 #class AcousticWave2D(LinearOperator):
 class AcousticWave2D():
@@ -49,14 +47,16 @@ class AcousticWave2D():
         (use``None`` if the data is already available)
     vpinit : :obj:`numpy.ndarray`, optional
         Initial velocity model in m/s as starting guess for inversion
-    src_type : :obj:`str`, optional
-        Source type
     space_order : :obj:`int`, optional
         Spatial ordering of FD stencil
     nbl : :obj:`int`, optional
         Number ordering of samples in absorbing boundaries
+    src_type : :obj:`str`, optional
+        Source type
     f0 : :obj:`float`, optional
         Source peak frequency (Hz)
+    wav : :obj:`numpy.ndarray`, optional
+        Wavelet (if provided ``src_type`` and ``f0`` will be ignored
     checkpointing : :obj:`bool`, optional
         Use checkpointing (``True``) or not (``False``). Note that
         using checkpointing is needed when dealing with large models
@@ -80,18 +80,16 @@ class AcousticWave2D():
         tn: int,
         vp: Optional[NDArray] = None,
         vpinit: Optional[NDArray] = None,
-        src_type: Optional[str] = "Ricker",
         space_order: Optional[int] = 4,
         nbl: Optional[int] = 20,
+        src_type: Optional[str] = "Ricker",
         f0: Optional[float] = 20.0,
+        wav: Optional[NDArray] = None,
         checkpointing: Optional[bool] = False,
         loss: Optional[Type] = None,
         dtype: Optional[DTypeLike] = "float32",
     ) -> None:
-        if devito_message is not None:
-            raise NotImplementedError(devito_message)
-
-        # checks
+        # velocity checks to ensure either vp or vint are provided
         if vp is None and vpinit is None:
             raise ValueError("Either vp or vpinit must be provided...")
         if vpinit is not None and loss is None:
@@ -101,6 +99,7 @@ class AcousticWave2D():
         self.space_order = space_order
         self.nbl = nbl
         self.checkpointing = checkpointing
+        self.wav = wav
 
         # inversion parameters
         self.loss = loss
@@ -248,7 +247,16 @@ class AcousticWave2D():
         # update source location in geometry
         geometry = self.geometry1shot
         geometry.src_positions[0, :] = self.geometry.src_positions[isrc, :]
-        
+
+        # re-create source (if wav is not None)
+        if self.wav is None:
+            src = geometry.src
+        else:
+            src = CustomSource(name='src', grid=self.model.grid,
+                               wav=self.wav, npoint=1,
+                               time_range=geometry.time_axis)
+            src.coordinates.data[0, :] = self.geometry.src_positions[isrc, :]
+
         # data object
         d = Receiver(name='data', grid=self.model.grid,
                      time_range=geometry.time_axis, 
@@ -256,7 +264,7 @@ class AcousticWave2D():
         # solve
         solver = AcousticWaveSolver(self.model, geometry, 
                                     space_order=self.space_order)
-        _, _, _ = solver.forward(vp=self.model.vp, rec=d)
+        _, _, _ = solver.forward(vp=self.model.vp, rec=d, src=src)
 
         # resample
         if dt is None:
@@ -283,14 +291,14 @@ class AcousticWave2D():
         dtot = np.array(dtot).reshape(nsrc, d.shape[0], d.shape[1])
         return dtot
 
-    def _loss_grad_oneshot(self, vp, geometry, solver, d_obs, d_syn, adjsrc, grad, dobs, isrc, 
+    def _loss_grad_oneshot(self, vp, geometry, src, solver, d_obs, d_syn, adjsrc, grad, dobs, isrc,
                            computeloss=True, computegrad=True) -> Tuple[float, NDArray]:
         
         # Generate synthetic data from true model
         #d_obs.data[:] = dobs
         
         # Compute smooth data and full forward wavefield u0
-        _, u0, _ = solver.forward(vp=vp, save=True, rec=d_syn)
+        _, u0, _ = solver.forward(vp=vp, save=True, rec=d_syn, src=src)
         
         # Compute loss
         if computeloss:
@@ -330,7 +338,15 @@ class AcousticWave2D():
         """
         # geometry for single source
         geometry = self.geometry1shot
-        
+
+        # re-create source (if wav is not None)
+        if self.wav is None:
+            src = geometry.src
+        else:
+            src = CustomSource(name='src', grid=self.model.grid,
+                               wav=self.wav, npoint=1,
+                               time_range=geometry.time_axis)
+
         # solver
         solver = AcousticWaveSolver(self.model, geometry, 
                                     space_order=self.space_order)
@@ -354,7 +370,8 @@ class AcousticWave2D():
         for isrc in tqdm(isrcs):
             # update source location in geometry
             geometry.src_positions[0, :] = self.geometry.src_positions[isrc, :]
-            lossgrad = self._loss_grad_oneshot(vp, geometry, solver, d_obs, d_syn, adjsrc, grad, dobs[isrc], isrc)
+            src.coordinates.data[0, :] = self.geometry.src_positions[isrc, :]
+            lossgrad = self._loss_grad_oneshot(vp, geometry, src, solver, d_obs, d_syn, adjsrc, grad, dobs[isrc], isrc)
             if computeloss and computegrad:
                 loss_isrc, grad = lossgrad
                 loss += loss_isrc
