@@ -1,9 +1,17 @@
 ![LOGO](https://github.com/DIG-Kaust/Project_Template/blob/master/logo.png)
 
 This library contains all the required building blocks to perform Full Waveform Inversion (FWI) with Devito (for modelling). 
-The vision is to seamlessly integrate this with PyLops and PyProximal to benefit from their modular handling of linear 
+OUr vision is to provide an abstract template to perform FWI with all sort of pre- and post-processing hooks that users can 
+develop and seamlessy include into a stable and robust FWI engine.
+
+By doing so, we also aim integrate this library with PyLops and PyProximal to benefit from their modular handling of linear 
 and proximal operators.
 
+At its current stage of development, ``devito-fwi`` can be schematically represented as follows:
+
+![DevitoFWIschematic](https://github.com/DIG-Kaust/Devito-fwi/blob/main/asset/fwistructure.png)
+
+where bla bla...
 
 ## Project structure
 This repository is organized as follows:
