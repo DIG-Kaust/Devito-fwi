@@ -4,6 +4,8 @@ from tempfile import gettempdir
 
 
 def clear_devito_cache():
+    """Clear devito cache
+    """
     tempdir = gettempdir()
     for i in listdir(tempdir):
         if i.startswith('devito-'):

@@ -5,21 +5,21 @@ from examples.seismic.utils import sources, PointSource
 
 
 class CustomSource(PointSource):
+    """Custom source
 
-    """
-    Abstract base class for symbolic objects that encapsulates a set of
-    sources with a user defined source signal wavelet.
+    This class creates a Devito symbolic object that encapsulates a set of
+    sources with a user defined source signal wavelet ``wav``
 
     Parameters
     ----------
-    name : str
+    name : :obj:`str`
         Name for the resulting symbol.
-    grid : Grid
+    grid : :obj:`devito.types.grid.Grid`
         The computational domain.
-    time_range : TimeAxis
+    time_range : :obj:`examples.seismic.source.TimeAxis`
         TimeAxis(start, step, num) object.
-    wav : numpy.ndarray
-        Wavelet
+    wav : :obj:`numpy.ndarray`
+        Wavelet of size
     
     """
 

@@ -14,9 +14,10 @@ This repository is organized as follows:
 
 ## Notebooks
 The following notebooks are provided:
-
+ 
 - :orange_book: ``Modelling_filtering.ipynb``: notebook comparing modelling with a filtered wavelet and filtering of original data computed with unfiltered wavelet;
 - :orange_book: ``AcousticVel_L2_1stage.ipynb``: notebook performing acoustic FWI parametrized in velocity with entire data;
+- :orange_book: ``AcousticVel_L2Torch_1stage.ipynb``: notebook performing acoustic FWI parametrized in velocity with entire data using Torch AD-based loss function;
 - :orange_book: ``AcousticVel_L2refr_1stage.ipynb``: notebook performing acoustic FWI parametrized in velocity with only refracted waves;
 - :orange_book: ``AcousticVel_L2_Nstages.ipynb``: notebook performing acoustic FWI parametrized in velocity with entire data in N frequency stages;
 - :orange_book: ``AcousticVel_L2refr_Nstages.ipynb``: notebook performing acoustic FWI parametrized in velocity with only refracted waves in N frequency stages.
@@ -52,3 +53,5 @@ The following list is intended to define some of the improvements that should be
 - [ ] Create ``acousticfwi`` wrapper that can implement multi-stage acoustic FWI with time-space masking
       (and can specialize to any alternative case)
 - [ ] Improve handling of user-defined source wavelets
+- [ ] Create NonLinear operator template class to be used for both propagators and norms implementing basic operations such as
+      sum, multiply, etc...

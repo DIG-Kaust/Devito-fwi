@@ -3,21 +3,50 @@ import matplotlib.pyplot as plt
 from scipy.signal import filtfilt
 
 
-def timespace_mask(arrival, nt, dt, toff=0., nsmooth=None):
-    """Design time-space mask based on arrival times
+class TimeSpaceMasking():
+    """Time-space masking
+
+    Create and apply time-space mask to data based on a arrival time curve
+
+    Parameters
+    ----------
+    arrival : :obj:`numpy.ndarray`
+        Arrival time curve of size :math:`ns \times nr`
+    nt : :obj:`int`
+        Number of time samples
+    dt : :obj:`float`
+        Time sampling
+    toff : :obj:`float`, optional
+        Time offset to apply to arrival time curve
+    nsmooth : :obj:`int`, optional
+        Number of samples for smoothing function to apply to mask
+        along the time axis
 
     """
-    ns, nr = arrival.shape
+    def __init__(self, arrival, nt, dt, toff=0., nsmooth=None):
+        self.nt = nt
+        self.dt = dt
+        self.toff = toff
+        self.nsmooth = nsmooth
+        self.mask = self._create_mask(arrival)
 
-    # create mask based on arrival times
-    mask = np.zeros((ns, nr, nt))
-    for isrc in range(ns):
-        for irec in range(nr):
-            it = np.round((arrival[isrc, irec] + toff) / dt).astype('int')
-            mask[isrc, irec, it:] = 1.
+    def _create_mask(self, arrival):
+        """Create mask
+        """
+        ns, nr = arrival.shape
 
-    # smooth mask along time axis
-    if nsmooth is not None:
-        mask = filtfilt(np.ones(nsmooth) / nsmooth, 1, mask, axis=-1)
+        # create mask based on arrival times
+        mask = np.zeros((ns, nr, self.nt))
+        for isrc in range(ns):
+            for irec in range(nr):
+                it = np.round((arrival[isrc, irec] + self.toff) / self.dt).astype('int')
+                mask[isrc, irec, it:] = 1.
 
-    return mask
+        # smooth mask along time axis
+        if self.nsmooth is not None:
+            mask = filtfilt(np.ones(self.nsmooth) / self.nsmooth, 1, mask, axis=-1)
+
+        return 1 - mask
+
+    def apply(self, data):
+        return self.mask * data

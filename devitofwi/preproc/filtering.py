@@ -69,17 +69,19 @@ def filter_data(nfilt, fmin, fmax, dt, inp, plotflag=False):
 class Filter():
     """Filtering
 
-    Define a sequence of filters to apply to a dataset/wavelet
+    Define a sequence of filters to apply to a dataset/wavelet based
+    on a list of cut-off frequencies and filter lengths
 
     Parameters
     ----------
     freqs : :obj:`list`
-        Minimum frequencies
+        Cut-off frequencies
     nfilt : :obj:`int`
         Size of filters
     dt : :obj:`float`
         Time sampling
-    p
+    plotflag : :obj:`bool`, Optional
+        Plot flag (if ``True`` the frequency response of the filters will be visualized
 
     """
     def __init__(self, freqs, nfilts, dt, plotflag=False):
