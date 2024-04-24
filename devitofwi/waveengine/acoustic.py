@@ -23,11 +23,11 @@ class AcousticWave2D():
 
     Parameters
     ----------
-    shape : :obj:`tuple` or :obj:`numpy.ndarray`
+    shape : :obj:`tuple`
         Model shape ``(nx, nz)``
-    origin : :obj:`tuple` or :obj:`numpy.ndarray`
+    origin : :obj:`tuple`
         Model origin ``(ox, oz)``
-    spacing : :obj:`tuple` or  :obj:`numpy.ndarray`
+    spacing : :obj:`tuple`
         Model spacing ``(dx, dz)``
     src_x : :obj:`numpy.ndarray`
         Source x-coordinates in m
@@ -49,7 +49,7 @@ class AcousticWave2D():
     vpinit : :obj:`numpy.ndarray`, optional
         Initial velocity model in m/s as starting guess for inversion
     vprange : :obj:`tuple`, optional
-        Velocity ranges (min, max) to be used in loss and gradient computations
+        Velocity range (min, max) to be used in loss and gradient computations
         (can be provided instead of ``vp`` to create a propagator for ``vpinit``
         with a time axis that is however consistent with that of the data modelled with ``vp``)
     space_order : :obj:`int`, optional

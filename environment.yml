@@ -12,7 +12,9 @@ dependencies:
   - tqdm
   - pylops
   - pyproximal
+  - ray-default
   - ipython
   - jupyter
+  - pytest
   - pip:
-    - devito
+    - devito==4.8.3

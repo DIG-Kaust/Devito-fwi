@@ -14,6 +14,9 @@ source ~/miniconda3/etc/profile.d/conda.sh
 conda activate devitofwi
 echo 'Created and activated environment:' $(which python)
 
+# install torch cpu only (change for any other version of gpu torch)
+conda install pytorch cpuonly -c pytorch
+
 # check packages work as expected
 echo 'Checking devito version and running a command...'
 python -c 'import devito; print(devito.__version__);'

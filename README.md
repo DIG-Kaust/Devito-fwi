@@ -26,8 +26,10 @@ The following notebooks are provided:
 - :orange_book: ``Modelling_filtering.ipynb``: notebook comparing modelling with a filtered wavelet and filtering of original data computed with unfiltered wavelet;
 - :orange_book: ``AcousticVel_L2_1stage.ipynb``: notebook performing acoustic FWI parametrized in velocity with entire data;
 - :orange_book: ``AcousticVel_L2Torch_1stage.ipynb``: notebook performing acoustic FWI parametrized in velocity with entire data using Torch AD-based loss function;
+- :orange_book: ``AcousticVel_L2Torch_1stagewrapper.ipynb``: notebook performing acoustic FWI parametrized in velocity with entire data using AcousticFWI wrapper;
 - :orange_book: ``AcousticVel_L2refr_1stage.ipynb``: notebook performing acoustic FWI parametrized in velocity with only refracted waves;
 - :orange_book: ``AcousticVel_L2_Nstages.ipynb``: notebook performing acoustic FWI parametrized in velocity with entire data in N frequency stages;
+- :orange_book: ``AcousticVel_L2_Nstageswrapper.ipynb``: notebook performing acoustic FWI parametrized in velocity with entire data in N frequency stages using AcousticFWI wrapper;
 - :orange_book: ``AcousticVel_L2refr_Nstages.ipynb``: notebook performing acoustic FWI parametrized in velocity with only refracted waves in N frequency stages.
 
 
@@ -63,3 +65,4 @@ The following list is intended to define some of the improvements that should be
 - [ ] Improve handling of user-defined source wavelets
 - [ ] Create NonLinear operator template class to be used for both propagators and norms implementing basic operations such as
       sum, multiply, etc...
+- [ ] Switch velocity units to always be km/s to avoid continously rescaling them inside the FWI codes
