@@ -44,8 +44,10 @@ class AcousticFWI2D():
         Number ordering of samples in absorbing boundaries
     firstscaling : :obj:`bool`, optional
         Compute first gradient and scale all gradients by its maximum or not
-    lossop : :obj:`pylops.LinearOperator`, optional
-        Linear operator to be applied to the modelled data within the loss function
+    lossop : :obj:`pylops.LinearOperator` or :obj:`list`, optional
+        Linear operator(s) to be applied to the modelled data within the loss function (whne multiple operators
+        are provided, they are applied in order to the different stages of multi-frequency FWI - note that
+        ``len(lossop)==len(frequencies)``.
     postprocess : :obj:`funct`, optional
         Function handle applying postprocessing to gradient and loss
     convertvp : :obj:`func`, optional
@@ -82,7 +84,7 @@ class AcousticFWI2D():
         self.space_order = space_order
         self.nbl = nbl
         self.firstscaling = firstscaling
-        self.lossop = lossop
+        self.lossop = _value_or_sized_to_tuple(lossop)
         self.postprocess = postprocess
         self.convertvp = convertvp
         self.callback = callback
@@ -125,7 +127,17 @@ class AcousticFWI2D():
     def run(self, dobs, plotflag=False, vlims=None):
         """FWI Runner
 
-        Run entire FWI job
+        Run an entire FWI job
+
+        Parameters
+        ----------
+        dobs : :obj:`numpy.ndarray`
+            Observed data of size :math:`n_s \times n_r \times n_t`
+        plotflag : :obj:`bool`, optional
+            Plot flag. If ``plotflag==True`` various intermediate plots will
+            be generated. This is mostly useful for debugging.
+        vlims : :obj:`tuple`, optional
+            Limits used to plot the velocity models
 
         """
 
@@ -146,7 +158,6 @@ class AcousticFWI2D():
             Filt = Filter(self.frequencies, self.nfilts, amod.geometry.dt * 1e-3, plotflag=plotflag)
             wav = amod.geometry.src.wavelet
             if plotflag:
-                # nwav = 400
                 f = np.fft.rfftfreq(self.nfft, amod.geometry.dt * 1e-3)
                 WAV = np.fft.rfft(wav, self.nfft)
                 plt.semilogx(f, 20 * np.log10(np.abs(WAV)) - 28, 'r')
@@ -207,7 +218,7 @@ class AcousticFWI2D():
                               vmin=-d_vmax, vmax=d_vmax)
 
             # Create loss and wave engine
-            lossfc = self.loss(self.lossop, dobsfilt.reshape(self.par['ns'], -1))
+            lossfc = self.loss(self.lossop[ifreq], dobsfilt.reshape(self.par['ns'], -1))
             ainv = AcousticWave2D(self.shape, self.origin, self.spacing,
                                   self.x_s[:, 0], self.x_s[:, 1], self.x_r[:, 0], self.x_r[:, 1],
                                   0., self.tmax,
