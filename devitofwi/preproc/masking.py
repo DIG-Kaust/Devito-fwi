@@ -35,14 +35,14 @@ class TimeSpaceMasking():
         """
         ns, nr = arrival.shape
 
-        # create mask based on arrival times
+        # Create mask based on arrival times
         mask = np.zeros((ns, nr, self.nt))
         for isrc in range(ns):
             for irec in range(nr):
                 it = np.round((arrival[isrc, irec] + self.toff) / self.dt).astype('int')
                 mask[isrc, irec, it:] = 1.
 
-        # smooth mask along time axis
+        # Smooth mask along time axis
         if self.nsmooth is not None:
             mask = filtfilt(np.ones(self.nsmooth) / self.nsmooth, 1, mask, axis=-1)
 

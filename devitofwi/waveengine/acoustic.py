@@ -97,28 +97,28 @@ class AcousticWave2D():
         dtype: Optional[DTypeLike] = "float32",
     ) -> None:
 
-        # create vp if not provided and vprange is available
+        # Create vp if not provided and vprange is available
         if vp is None and vprange is not None:
             vp = vprange[0] * np.ones(shape)
             vp[-1, -1] = vprange[1]
 
-        # velocity checks to ensure either vp or vint are provided
+        # Velocity checks to ensure either vp or vint are provided
         if vp is None and vpinit is None:
             raise ValueError("Either vp or vpinit must be provided...")
-        if vpinit is not None and loss is None:
-            raise ValueError("Must provide a loss to be able to run inversion...")
+        #if vpinit is not None and loss is None:
+        #    raise ValueError("Must provide a loss to be able to run inversion...")
 
-        # modelling parameters
+        # Mmodelling parameters
         self.space_order = space_order
         self.nbl = nbl
         self.checkpointing = checkpointing
         self.wav = wav
 
-        # inversion parameters
+        # Inversion parameters
         self.loss = loss
         self.losshistory = []
 
-        # create model
+        # Create model
         self.modelexists = True if vp is not None else False
 
         if vpinit is not None:
@@ -270,7 +270,7 @@ class AcousticWave2D():
         geometry = self.geometry1shot
         geometry.src_positions[0, :] = self.geometry.src_positions[isrc, :]
 
-        # re-create source (if wav is not None)
+        # Re-create source (if wav is not None)
         if self.wav is None:
             src = geometry.src
         else:
@@ -426,7 +426,8 @@ class AcousticWave2D():
         # Postprocess loss and gradient
         grad = self._crop_model(grad.data[:], self.nbl)
         vp = self._crop_model(vp.data[:], self.nbl)
-        loss, grad = postprocess(vp, loss, grad)
+        if postprocess is not None:
+            loss, grad = postprocess(vp, loss, grad)
 
         if computeloss and computegrad:
             return loss, grad

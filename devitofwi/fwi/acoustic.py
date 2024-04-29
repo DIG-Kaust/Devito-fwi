@@ -44,8 +44,8 @@ class AcousticFWI2D():
         Number ordering of samples in absorbing boundaries
     firstscaling : :obj:`bool`, optional
         Compute first gradient and scale all gradients by its maximum or not
-    lossop : :obj:`pylops.LinearOperator` or :obj:`list`, optional
-        Linear operator(s) to be applied to the modelled data within the loss function (whne multiple operators
+    lossop : :obj:`pylops.LinearOperator` or :obj:`tuple`, optional
+        Linear operator(s) to be applied to the modelled data within the loss function (when multiple operators
         are provided, they are applied in order to the different stages of multi-frequency FWI - note that
         ``len(lossop)==len(frequencies)``.
     postprocess : :obj:`funct`, optional
@@ -84,10 +84,15 @@ class AcousticFWI2D():
         self.space_order = space_order
         self.nbl = nbl
         self.firstscaling = firstscaling
-        self.lossop = _value_or_sized_to_tuple(lossop)
         self.postprocess = postprocess
         self.convertvp = convertvp
         self.callback = callback
+
+        # Save loss/multiple losses
+        # Since lossop can be a list... in that case wrap it into a tuple of size 1
+        if isinstance(lossop, tuple) and len(lossop) != len(frequencies):
+            raise ValueError('lossop and frequencies must have the same dimensions...')
+        self.lossop = lossop if isinstance(lossop, tuple) else (lossop, )
 
         # Save parameters for FWI stages
         self.frequencies = _value_or_sized_to_tuple(frequencies)
@@ -141,22 +146,23 @@ class AcousticFWI2D():
 
         """
 
-        # Create reference modelling engine
-        amod = AcousticWave2D(self.shape, self.origin, self.spacing,
-                              self.x_s[:, 0], self.x_s[:, 1],
-                              self.x_r[:, 0], self.x_r[:, 1],
-                              0., self.tmax,
-                              vprange=self.vp_range,
-                              wav=self.wav, f0=self.par['freq'],
-                              space_order=self.space_order, nbl=self.nbl)
-
         # Prepare data and wavelet to allow filtering
         if self.frequencies[0] is not None:
+            # Create reference modelling engine
+            amod = AcousticWave2D(self.shape, self.origin, self.spacing,
+                                  self.x_s[:, 0], self.x_s[:, 1],
+                                  self.x_r[:, 0], self.x_r[:, 1],
+                                  0., self.tmax,
+                                  vprange=self.vp_range,
+                                  vpinit=self.vp_init,
+                                  wav=self.wav, f0=self.par['freq'],
+                                  space_order=self.space_order, nbl=self.nbl)
+
             # Define filter
             if plotflag:
                 plt.figure(figsize=(15, 6))
             Filt = Filter(self.frequencies, self.nfilts, amod.geometry.dt * 1e-3, plotflag=plotflag)
-            wav = amod.geometry.src.wavelet
+            wav = amod.geometry.src.wavelet.copy()
             if plotflag:
                 f = np.fft.rfftfreq(self.nfft, amod.geometry.dt * 1e-3)
                 WAV = np.fft.rfft(wav, self.nfft)
@@ -179,7 +185,7 @@ class AcousticFWI2D():
                     ax.imshow(dobspad[ishot], aspect='auto', cmap='gray',
                               vmin=-d_vmax, vmax=d_vmax)
         else:
-            wav = self.wav
+            wav = self.wav.copy()
             dobspad = dobs
 
         # Run inversion
@@ -205,7 +211,7 @@ class AcousticFWI2D():
                 dobsfilt = np.vstack(
                     [Filt.apply_filter(dobspad[isrc].T, ifilt=ifreq).T[None, :] for isrc in range(self.par['ns'])])
             else:
-                wavfilt = self.wav
+                wavfilt = wav
                 dobsfilt = dobspad
 
             if plotflag:
@@ -232,14 +238,11 @@ class AcousticFWI2D():
                 # Compute first gradient and find scaling
                 if self.postprocess is not None:
                     self.postprocess.scaling = 1.
-                print('self.postprocess.scaling before _loss_grad', self.postprocess.scaling)
                 loss, direction = ainv._loss_grad(ainv.initmodel.vp,
                                                   postprocess=None if self.postprocess is None else self.postprocess.apply)
                 scaling = direction.max()
-                print('Scaling', scaling)
                 if self.postprocess is not None:
                     self.postprocess.scaling = scaling
-                print('self.postprocess.scaling after _loss_grad', self.postprocess.scaling)
                 if plotflag:
                     plt.figure(figsize=(14, 5))
                     im = plt.imshow(direction.T / scaling, cmap='seismic', vmin=-1e-1, vmax=1e-1,
@@ -250,7 +253,7 @@ class AcousticFWI2D():
                     plt.axis('tight')
                     plt.colorbar(im)
 
-            # FWI with L-BFGS
+            # Inversion
             nl = minimize(ainv.loss_grad,
                           self.vp_init.ravel() * 1e-3, # km/s
                           method=self.solver, jac=True,
