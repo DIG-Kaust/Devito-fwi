@@ -1,4 +1,6 @@
-__all__ = ["L2"]
+__all__ = ["L2",
+           "L2Torch",
+           ]
 
 import numpy as np
 import torch
@@ -12,7 +14,7 @@ from pylops.utils.backend import get_array_module, get_module_name
 class L2():
     r"""L2 Norm.
 
-    Computes the :math:`\ell_2` norm defined as: :math:`f(\mathbf{x}) =
+    Computes the :math:`\ell_2` norm defined as: :math:`\ell_2(\mathbf{x}) =
     \frac{\sigma}{2} ||\mathbf{Op}\mathbf{x} - \mathbf{b}||_2^2`
 
     Parameters
@@ -57,14 +59,14 @@ class L2Torch():
 
     Parameters
     ----------
+    b : :obj:`numpy.ndarray`
+        Data vector
     Op : :obj:`pylops.LinearOperator`, optional
         Linear operator
-    b : :obj:`numpy.ndarray`, optional
-        Data vector
-
+    
     """
 
-    def __init__(self, Op=None, b=None):
+    def __init__(self, b, Op=None):
         self.Op = Op
         self.b = b
 

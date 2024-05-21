@@ -64,8 +64,15 @@ class AcousticFWI2D():
     wavpad : :obj:`int`, optional
         Initial padding used to estimate the ideal padding to apply to the wavelet based on the first low-pass filter
         (i.e., first frequency in ``frequencies``).
-    kwargs_solver : :obj:`int` or :obj:`tuple`, optional
+    kwargs_loss : :obj:`dict`, optional
+        Additional keyword arguments to be passed to the loss
+    solver : :obj:`str`, optional
+        Name of solver to be passed to :func:`scipy.optimize.minimize`
+    kwargs_solver : :obj:`dict`, optional
         Additional keyword arguments to be passed to the solver
+    callback : :obj:`func`, optional
+        Callback to be passed to solver
+
     """
     def __init__(self, par,
                  vp_init, vp_range,
@@ -73,7 +80,9 @@ class AcousticFWI2D():
                  space_order=4, nbl=20,
                  firstscaling=True, lossop=None, postprocess=None, convertvp=None,
                  frequencies=None, nfilts=None, nfft=2**10, wavpad=700,
-                 solver='L-BFGS-B', kwargs_solver=None, callback=None):
+                 kwargs_loss=None,
+                 solver='L-BFGS-B', kwargs_solver=None,  
+                 callback=None):
 
         # Save parameters for FWI
         self.par = par
@@ -99,6 +108,9 @@ class AcousticFWI2D():
         self.nfilts = _value_or_sized_to_tuple(nfilts)
         self.nfft = nfft
         self.wavpad = wavpad
+
+        # Save parameters for loss
+        self.kwargs_loss = kwargs_loss
 
         # Save parameters for solver
         self.solver = solver
@@ -224,7 +236,7 @@ class AcousticFWI2D():
                               vmin=-d_vmax, vmax=d_vmax)
 
             # Create loss and wave engine
-            lossfc = self.loss(self.lossop[ifreq], dobsfilt.reshape(self.par['ns'], -1))
+            lossfc = self.loss(self.lossop[ifreq], dobsfilt.reshape(self.par['ns'], -1), **self.kwargs_loss)
             ainv = AcousticWave2D(self.shape, self.origin, self.spacing,
                                   self.x_s[:, 0], self.x_s[:, 1], self.x_r[:, 0], self.x_r[:, 1],
                                   0., self.tmax,
