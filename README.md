@@ -2,7 +2,7 @@
 Expect things to constantly change until version v1.0.0. :vertical_traffic_light: :vertical_traffic_light:
 
 This library contains all the required building blocks to perform Full Waveform Inversion (FWI) with Devito (for modelling). 
-OUr vision is to provide an abstract template to perform FWI with all sort of pre- and post-processing hooks that users can 
+Our vision is to provide an abstract template to perform FWI with all sort of pre- and post-processing hooks that users can 
 develop and seamlessy include into a stable and robust FWI engine.
 
 By doing so, we also aim integrate this library with PyLops and PyProximal to benefit from their modular handling of linear 
