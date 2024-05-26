@@ -1,4 +1,5 @@
-![LOGO](https://github.com/DIG-Kaust/Project_Template/blob/master/logo.png)
+:vertical_traffic_light: :vertical_traffic_light: This library is under early development.
+Expect things to constantly change until version v1.0.0. :vertical_traffic_light: :vertical_traffic_light:
 
 This library contains all the required building blocks to perform Full Waveform Inversion (FWI) with Devito (for modelling). 
 OUr vision is to provide an abstract template to perform FWI with all sort of pre- and post-processing hooks that users can 
@@ -10,8 +11,6 @@ and proximal operators.
 At its current stage of development, ``devito-fwi`` can be schematically represented as follows:
 
 ![DevitoFWIschematic](https://github.com/DIG-Kaust/Devito-fwi/blob/main/asset/fwistructure.png)
-
-where bla bla...
 
 ## Project structure
 This repository is organized as follows:
