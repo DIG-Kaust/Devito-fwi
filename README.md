@@ -33,8 +33,6 @@ The following notebooks are provided:
 - :orange_book: ``acoustic/AcousticVel_L2_Nstageswrapper.ipynb``: notebook performing acoustic FWI parametrized in velocity with entire data in N frequency stages using AcousticFWI wrapper;
 - :orange_book: ``acoustic/AcousticVel_L2refr_Nstages.ipynb``: notebook performing acoustic FWI parametrized in velocity with only refracted waves in N frequency stages.
 
-notebooks/acoustic/AcousticVel_XCorrrefr_1stagewrapper.ipynb
-
 
 ## Getting started :space_invader: :robot:
 To ensure reproducibility of the results, we suggest using the `environment.yml` file when creating an environment.
