@@ -1,18 +1,26 @@
 __all__ = ["AcousticWave2D"]
 
-from typing import Optional, Type, Tuple
+from typing import Any, Optional, NewType, Type, Tuple
 
 import numpy as np
 
 from pylops import LinearOperator
 from pylops.utils import deps
 from pylops.utils.typing import DTypeLike, InputDimsLike, NDArray, SamplingLike
-from tqdm.notebook import tqdm
+from tqdm.autonotebook import tqdm
 
 from devito import Function
 from examples.seismic import AcquisitionGeometry, Model, Receiver
 from examples.seismic.acoustic import AcousticWaveSolver
 from devitofwi.devito.source import CustomSource
+
+try:
+    from mpi4py import MPI
+    mpitype = MPI.Comm
+except:
+    mpitype = Any
+
+MPIType = NewType("MPIType", mpitype)
 
 
 class AcousticWave2D():
@@ -69,6 +77,8 @@ class AcousticWave2D():
         Loss object.
     dtype : :obj:`str`, optional
         Type of elements in input array.
+    base_comm : :obj:`mpi4py.MPI.Comm`, optional
+        Base MPI Communicator. Defaults to ``mpi4py.MPI.COMM_WORLD``.
     
     """
 
@@ -95,6 +105,7 @@ class AcousticWave2D():
         checkpointing: Optional[bool] = False,
         loss: Optional[Type] = None,
         dtype: Optional[DTypeLike] = "float32",
+        base_comm: Optional[MPIType] = None,
     ) -> None:
 
         # Create vp if not provided and vprange is available
@@ -108,7 +119,7 @@ class AcousticWave2D():
         #if vpinit is not None and loss is None:
         #    raise ValueError("Must provide a loss to be able to run inversion...")
 
-        # Mmodelling parameters
+        # Modelling parameters
         self.space_order = space_order
         self.nbl = nbl
         self.checkpointing = checkpointing
@@ -118,6 +129,9 @@ class AcousticWave2D():
         self.loss = loss
         self.losshistory = []
 
+        # MPI parameters
+        self.base_comm = base_comm
+        
         # Create model
         self.modelexists = True if vp is not None else False
 
@@ -128,7 +142,7 @@ class AcousticWave2D():
         # else:
         #    self.model = self._create_model(shape, origin, spacing, vpinit, space_order, nbl)
 
-        # create geometry
+        # Create geometry
         self.geometry = self._create_geometry(self.model if vp is not None else self.initmodel,
                                               src_x, src_z, rec_x, rec_z, t0, tn, src_type,
                                               f0=f0, dt=dt)
@@ -305,7 +319,7 @@ class AcousticWave2D():
 
         Returns
         -------
-        d : :obj:`np.ndarray`
+        dtot : :obj:`np.ndarray`
             Data for all shots
 
         """
@@ -316,6 +330,28 @@ class AcousticWave2D():
             d = self._mod_oneshot(isrc, dt)
             dtot.append(d)
         dtot = np.array(dtot).reshape(nsrc, d.shape[0], d.shape[1])
+        
+        return dtot
+
+    def mod_allshots_mpi(self, dt=None) -> NDArray:
+        """FD modelling for all shots with mpi gathering
+
+        Parameters
+        ----------
+        dt : :obj:`float`, optional
+            Time sampling used to resample modelled data
+
+        Returns
+        -------
+        d : :obj:`np.ndarray`
+            Data for all shots
+
+        """
+        dtotrank = self.mod_allshots(dt)
+
+        # gather shots from all ranks
+        dtot = np.concatenate(self.base_comm.allgather(dtotrank), axis=0)
+        
         return dtot
 
     def _adjoint_source(self, d_syn, isrc):
@@ -423,8 +459,18 @@ class AcousticWave2D():
             elif computeloss:
                 loss += lossgrad
 
+        if computegrad:
+            grad = grad.data[:]
+
+        # Gather gradients 
+        if self.base_comm is not None:
+            if computeloss:
+                loss = self.base_comm.allreduce(loss, op=MPI.SUM)
+            if computegrad:
+                grad = self.base_comm.allreduce(grad, op=MPI.SUM)
+
         # Postprocess loss and gradient
-        grad = self._crop_model(grad.data[:], self.nbl)
+        grad = self._crop_model(grad, self.nbl)
         vp = self._crop_model(vp.data[:], self.nbl)
         if postprocess is not None:
             loss, grad = postprocess(vp, loss, grad)
