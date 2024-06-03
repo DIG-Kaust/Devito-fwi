@@ -18,6 +18,7 @@ This repository is organized as follows:
 * :open_file_folder: **devitofwi**: python library containing routines to perform FWI with Devito modelling engines;
 * :open_file_folder: **data**: folder containing sample data to run notebooks;
 * :open_file_folder: **notebooks**: set of jupyter notebooks used to showcase different ways to run FWI with ``devitofwi``;
+* :open_file_folder: **scripts**: set of scripts notebooks used to showcase different ways to run FWI with ``devitofwi`` in distributed mode;
 
 ## Notebooks
 The following notebooks are provided:
@@ -32,6 +33,12 @@ The following notebooks are provided:
 - :orange_book: ``acoustic/AcousticVel_L2_Nstages.ipynb``: notebook performing acoustic FWI parametrized in velocity with entire data in N frequency stages;
 - :orange_book: ``acoustic/AcousticVel_L2_Nstageswrapper.ipynb``: notebook performing acoustic FWI parametrized in velocity with entire data in N frequency stages using AcousticFWI wrapper;
 - :orange_book: ``acoustic/AcousticVel_L2refr_Nstages.ipynb``: notebook performing acoustic FWI parametrized in velocity with only refracted waves in N frequency stages.
+
+
+## Scripts
+The following scripts are also provided:
+- :orange_book: ``acoustic/Gradient_compariso_mpi_.ipynb``: notebook computing gradients distributed across sources;
+- :orange_book: ``acoustic/AcousticVel_L2_1stage.ipynb``: notebook performing acoustic FWI parametrized in velocity distributed across sources;
 
 
 ## Getting started :space_invader: :robot:
