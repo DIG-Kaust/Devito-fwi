@@ -37,7 +37,7 @@ The following notebooks are provided:
 
 ## Scripts
 The following scripts are also provided:
-- :orange_book: ``acoustic/Gradient_compariso_mpi_.ipynb``: notebook computing gradients distributed across sources;
+- :orange_book: ``acoustic/Gradient_comparison_mpi.ipynb``: notebook computing gradients distributed across sources;
 - :orange_book: ``acoustic/AcousticVel_L2_1stage.ipynb``: notebook performing acoustic FWI parametrized in velocity distributed across sources;
 
 
