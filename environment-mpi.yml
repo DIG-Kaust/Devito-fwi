@@ -1,0 +1,20 @@
+name: devitofwi_mpi
+channels:
+  - defaults
+  - conda-forge
+  - numba
+dependencies:
+  - python
+  - pip
+  - numpy
+  - scipy
+  - matplotlib
+  - tqdm
+  - pylops
+  - pyproximal
+  - mpi4py
+  - ipython
+  - jupyter
+  - pytest
+  - pip:
+    - devito==4.8.3

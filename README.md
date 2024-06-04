@@ -42,6 +42,8 @@ The following scripts are also provided:
 
 
 ## Getting started :space_invader: :robot:
+
+### Serial version
 To ensure reproducibility of the results, we suggest using the `environment.yml` file when creating an environment.
 
 Simply run:
@@ -60,6 +62,17 @@ pip install -e .
 Remember to always activate the environment by typing:
 ```
 conda activate devitofwi
+```
+
+### MPI version
+Follow the same procedure described above. However, run 
+```
+./install_mpienv.sh
+```
+
+and remember to always activate the environment by typing:
+```
+conda activate devitofwi_mpi
 ```
 
 ## To do list :memo:

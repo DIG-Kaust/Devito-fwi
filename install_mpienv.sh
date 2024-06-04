@@ -1,17 +1,17 @@
 #!/bin/bash
 # 
-# Installer for Devito-fwi environment
+# Installer for Devito-fwi environment with MPI
 #
-# Run: ./install_env.sh
+# Run: ./install_mpienv.sh
 #
-# M. Ravasi, 17/03/2024
+# M. Ravasi, 04/06/2024
 
-echo 'Creating Devito-fwi environment'
+echo 'Creating Devito-fwi environmentw with MPI'
 
 # create conda env
 conda env create -f environment.yml
 source $CONDA_PREFIX/etc/profile.d/conda.sh
-conda activate devitofwi
+conda activate devitofwi_mpi
 echo 'Created and activated environment:' $(which python)
 
 # install torch cpu only (change for any other version of gpu torch)
