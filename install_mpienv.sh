@@ -9,7 +9,7 @@
 echo 'Creating Devito-fwi environmentw with MPI'
 
 # create conda env
-conda env create -f environment.yml
+conda env create -f environment-mpi.yml
 source $CONDA_PREFIX/etc/profile.d/conda.sh
 conda activate devitofwi_mpi
 echo 'Created and activated environment:' $(which python)

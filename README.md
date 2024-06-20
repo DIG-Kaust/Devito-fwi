@@ -28,6 +28,7 @@ The following notebooks are provided:
 - :orange_book: ``acoustic/AcousticVel_L2_1stage.ipynb``: notebook performing acoustic FWI parametrized in velocity with entire data;
 - :orange_book: ``acoustic/AcousticVel_L2Torch_1stage.ipynb``: notebook performing acoustic FWI parametrized in velocity with entire data using Torch AD-based objective function;
 - :orange_book: ``acoustic/AcousticVel_L2Torch_1stagewrapper.ipynb``: notebook performing acoustic FWI parametrized in velocity with entire data using  Torch AD-based objective function and AcousticFWI wrapper;
+- :orange_book: ``acoustic/AcousticVel_L2Adam_1stage.ipynb``: notebook performing acoustic FWI parametrized in velocity with entire data wrapping wave engine in a ttorch AD-based graph and using Adam solver;
 - :orange_book: ``acoustic/AcousticVel_L2refr_1stage.ipynb``: notebook performing acoustic FWI parametrized in velocity with only refracted waves;
 - :orange_book: ``acoustic/AcousticVel_XCorrrefr_1stagewrapper.ipynb``: notebook performing acoustic FWI parametrized in velocity with only refracted waves XCorr objective function and AcousticFWI wrapper;
 - :orange_book: ``acoustic/AcousticVel_L2_Nstages.ipynb``: notebook performing acoustic FWI parametrized in velocity with entire data in N frequency stages;
