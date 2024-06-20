@@ -6,8 +6,11 @@ from scipy.signal import butter, sosfiltfilt, correlate, freqs, hilbert
 
 def create_filter(nfilt, fmin, fmax, dt, plotflag=False):
     if fmin is None:
-        b, a = butter(nfilt, fmax, 'low', analog=True)
-        sos = butter(nfilt, fmax, 'low', fs=1 / dt, output='sos')
+        b, a = butter(nfilt, fmax, 'lowpass', analog=True)
+        sos = butter(nfilt, fmax, 'lowpass', fs=1 / dt, output='sos')
+    elif fmax is None:
+        b, a = butter(nfilt, fmin, 'highpass', analog=True)
+        sos = butter(nfilt, fmin, 'highpass', fs=1 / dt, output='sos')
     else:
         b, a = butter(nfilt, [fmin, fmax], 'bandpass', analog=True)
         sos = butter(nfilt, [fmin, fmax], 'bandpass', fs=1 / dt, output='sos')

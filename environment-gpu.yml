@@ -1,0 +1,24 @@
+name: devitofwi_gpu
+channels:
+  - pytorch
+  - nvidia
+  - defaults
+  - conda-forge
+  - numba
+dependencies:
+  - python
+  - pip
+  - numpy
+  - scipy
+  - pytorch==2.2.2
+  - pytorch-cuda=11.8
+  - matplotlib
+  - tqdm
+  - pylops
+  - pyproximal
+  - mpi4py
+  - ipython
+  - jupyter
+  - pytest
+  - pip:
+    - devito
