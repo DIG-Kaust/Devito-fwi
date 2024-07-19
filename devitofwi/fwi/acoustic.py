@@ -80,7 +80,7 @@ class AcousticFWI2D():
                  space_order=4, nbl=20,
                  firstscaling=True, lossop=None, postprocess=None, convertvp=None,
                  frequencies=None, nfilts=None, nfft=2**10, wavpad=700,
-                 kwargs_loss=None,
+                 kwargs_loss={},
                  solver='L-BFGS-B', kwargs_solver=None,  
                  callback=None):
 
