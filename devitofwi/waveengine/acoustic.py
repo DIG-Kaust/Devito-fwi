@@ -13,6 +13,7 @@ from devito import Function
 from examples.seismic import AcquisitionGeometry, Model, Receiver
 from examples.seismic.acoustic import AcousticWaveSolver
 from devitofwi.devito.source import CustomSource
+from devitofwi.devito.utils import clear_devito_cache
 
 try:
     from mpi4py import MPI
@@ -77,6 +78,8 @@ class AcousticWave2D():
         Loss object.
     dtype : :obj:`str`, optional
         Type of elements in input array.
+    clearcache : :obj:`bool`, optional
+        Clear devito cache (``True``) or not (``False``) after every modelling step
     base_comm : :obj:`mpi4py.MPI.Comm`, optional
         Base MPI Communicator. Defaults to ``mpi4py.MPI.COMM_WORLD``.
     
@@ -105,6 +108,7 @@ class AcousticWave2D():
         checkpointing: Optional[bool] = False,
         loss: Optional[Type] = None,
         dtype: Optional[DTypeLike] = "float32",
+        clearcache: Optional[bool] = False,
         base_comm: Optional[MPIType] = None,
     ) -> None:
 
@@ -124,7 +128,8 @@ class AcousticWave2D():
         self.nbl = nbl
         self.checkpointing = checkpointing
         self.wav = wav
-
+        self.clearcache = clearcache
+        
         # Inversion parameters
         self.loss = loss
         self.losshistory = []
@@ -329,6 +334,8 @@ class AcousticWave2D():
         for isrc in tqdm(range(nsrc)):
             d = self._mod_oneshot(isrc, dt)
             dtot.append(d)
+            if self.clearcache:
+                clear_devito_cache()
         dtot = np.array(dtot).reshape(nsrc, d.shape[0], d.shape[1])
         
         return dtot
@@ -380,7 +387,7 @@ class AcousticWave2D():
             adjsrc.data[:] = self._adjoint_source(d_syn.data[:].ravel(), isrc).reshape(adjsrc.data.shape)
 
             # Compute gradient
-            solver.gradient(rec=adjsrc, u=u0, vp=vp, grad=grad)
+            solver.gradient(rec=adjsrc, u=u0, vp=vp, grad=grad, checkpointing=self.checkpointing)
         
         if computeloss and computegrad:
             return loss, grad
@@ -454,6 +461,9 @@ class AcousticWave2D():
             # Compute loss and gradient for one shot
             lossgrad = self._loss_grad_oneshot(vp, src, solver, d_syn, adjsrc, grad, isrc,
                                                computeloss=computeloss, computegrad=computegrad)
+            if self.clearcache:
+                clear_devito_cache()
+
             if computeloss and computegrad:
                 loss += lossgrad[0]
             elif computeloss:
