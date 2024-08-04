@@ -11,6 +11,7 @@ from tqdm.autonotebook import tqdm
 
 from devito import Function
 from examples.seismic import AcquisitionGeometry, Model, Receiver
+from examples.seismic.model import SeismicModel
 from examples.seismic.acoustic import AcousticWaveSolver
 from devitofwi.devito.source import CustomSource
 from devitofwi.devito.utils import clear_devito_cache
@@ -35,28 +36,28 @@ class AcousticWave2D():
     shape : :obj:`tuple`
         Model shape ``(nx, nz)``
     origin : :obj:`tuple`
-        Model origin ``(ox, oz)``
+        Model origin in km ``(ox, oz)`` 
     spacing : :obj:`tuple`
-        Model spacing ``(dx, dz)``
+        Model spacing in km ``(dx, dz)``
     src_x : :obj:`numpy.ndarray`
-        Source x-coordinates in m
+        Source x-coordinates in km
     src_z : :obj:`numpy.ndarray` or :obj:`float`
-        Source z-coordinates in m
+        Source z-coordinates in km
     rec_x : :obj:`numpy.ndarray`
-        Receiver x-coordinates in m
+        Receiver x-coordinates in km
     rec_z : :obj:`numpy.ndarray` or :obj:`float`
-        Receiver z-coordinates in m
+        Receiver z-coordinates in km
     t0 : :obj:`float`
-        Initial time in ms
+        Initial time in s
     tn : :obj:`int`
-        Final time in ms
+        Final time in s
     dt : :obj:`int`, optional
-        Time step in ms (if not provided this is directly inferred by devito)
+        Time step in s (if not provided this is directly inferred by devito)
     vp : :obj:`numpy.ndarray`, optional
-        Velocity model in m/s for modelling, 
+        Velocity model in km/s for modelling, 
         (use ``None`` if the data is already available)
     vpinit : :obj:`numpy.ndarray`, optional
-        Initial velocity model in m/s as starting guess for inversion
+        Initial velocity model in km/s as starting guess for inversion
     vprange : :obj:`tuple`, optional
         Velocity range (min, max) to be used in loss and gradient computations
         (can be provided instead of ``vp`` to create a propagator for ``vpinit``
@@ -68,7 +69,7 @@ class AcousticWave2D():
     src_type : :obj:`str`, optional
         Source type
     f0 : :obj:`float`, optional
-        Source peak frequency (Hz)
+        Source peak frequency in Hz
     wav : :obj:`numpy.ndarray`, optional
         Wavelet (if provided ``src_type`` and ``f0`` will be ignored
     checkpointing : :obj:`bool`, optional
@@ -111,7 +112,11 @@ class AcousticWave2D():
         clearcache: Optional[bool] = False,
         base_comm: Optional[MPIType] = None,
     ) -> None:
-
+    
+        # Velocity checks to ensure that vp or vint are not both provided
+        if vp is not None and vpinit is not None:
+            raise ValueError("Provide either vp or vpinit, not both...")
+        
         # Create vp if not provided and vprange is available
         if vp is None and vprange is not None:
             vp = vprange[0] * np.ones(shape)
@@ -122,8 +127,20 @@ class AcousticWave2D():
             raise ValueError("Either vp or vpinit must be provided...")
         #if vpinit is not None and loss is None:
         #    raise ValueError("Must provide a loss to be able to run inversion...")
-
+           
+        # Geometry parameters
+        self.src = (src_x, src_z)
+        self.rec = (rec_x, rec_z)
+        
         # Modelling parameters
+        self.shape = shape
+        self.origin = origin
+        self.spacing = spacing
+        self.t0 = t0
+        self.tn = tn
+        self.dt = dt
+        self.src_type = src_type
+        self.f0 = f0
         self.space_order = space_order
         self.nbl = nbl
         self.checkpointing = checkpointing
@@ -137,23 +154,10 @@ class AcousticWave2D():
         # MPI parameters
         self.base_comm = base_comm
         
-        # Create model
+        # Model
+        self.vp = vp
+        self.vpinit = vpinit
         self.modelexists = True if vp is not None else False
-
-        if vpinit is not None:
-            self.initmodel = self._create_model(shape, origin, spacing, vpinit, space_order, nbl)
-        if vp is not None:
-            self.model = self._create_model(shape, origin, spacing, vp, space_order, nbl)
-        # else:
-        #    self.model = self._create_model(shape, origin, spacing, vpinit, space_order, nbl)
-
-        # Create geometry
-        self.geometry = self._create_geometry(self.model if vp is not None else self.initmodel,
-                                              src_x, src_z, rec_x, rec_z, t0, tn, src_type,
-                                              f0=f0, dt=dt)
-        self.geometry1shot = self._create_geometry(self.model if vp is not None else self.initmodel,
-                                                   src_x[:1], src_z[:1], rec_x, rec_z, t0, tn, src_type,
-                                                   f0=f0, dt=dt)
 
     @staticmethod
     def _crop_model(m: NDArray, nbl: int) -> NDArray:
@@ -176,11 +180,11 @@ class AcousticWave2D():
         shape : :obj:`numpy.ndarray`
             Model shape ``(nx, nz)``
         origin : :obj:`numpy.ndarray`
-            Model origin ``(ox, oz)``
+            Model origin in km ``(ox, oz)``
         spacing : :obj:`numpy.ndarray`
-            Model spacing ``(dx, dz)``
+            Model spacing in km ``(dx, dz)``
         vp : :obj:`numpy.ndarray`
-            Velocity model in m/s
+            Velocity model in km/s
         space_order : :obj:`int`, optional
             Spatial ordering of FD stencil
         nbl : :obj:`int`, optional
@@ -194,7 +198,7 @@ class AcousticWave2D():
         """
         model = Model(
             space_order=space_order,
-            vp=vp * 1e-3,
+            vp=vp,
             origin=origin,
             shape=shape,
             dtype=np.float32,
@@ -224,23 +228,23 @@ class AcousticWave2D():
         model : :obj:`examples.seismic.model.SeismicModel`
             Model
         src_x : :obj:`numpy.ndarray`
-            Source x-coordinates in m
+            Source x-coordinates in km
         src_z : :obj:`numpy.ndarray` or :obj:`float`
-            Source z-coordinates in m
+            Source z-coordinates in km
         rec_x : :obj:`numpy.ndarray`
-            Receiver x-coordinates in m
+            Receiver x-coordinates in km
         rec_z : :obj:`numpy.ndarray` or :obj:`float`
-            Receiver z-coordinates in m
+            Receiver z-coordinates in km
         t0 : :obj:`float`
-            Initial time in ms
+            Initial time in s
         tn : :obj:`float`
-            Final time in ms
+            Final time in s
         src_type : :obj:`str`
             Source type
         f0 : :obj:`float`, optional
-            Source peak frequency (Hz)
+            Source peak frequency in Hz
         dt : :obj:`float`, optional
-            Time step time in ms (if provided, the geometry time_axis is
+            Time step time in s (if provided, the geometry time_axis is
             recreated with this time step)
 
         """
@@ -260,7 +264,7 @@ class AcousticWave2D():
             t0,
             tn,
             src_type=src_type,
-            f0=None if f0 is None else f0 * 1e-3,
+            f0=None if f0 is None else f0,
         )
 
         # Resample geometry to user defined dt
@@ -269,11 +273,13 @@ class AcousticWave2D():
 
         return geometry
 
-    def _mod_oneshot(self, isrc: int, dt: float = None) -> NDArray:
+    def _mod_oneshot(self, model: SeismicModel, isrc: int, dt: float = None) -> NDArray:
         """FD modelling for one shot
 
         Parameters
         ----------
+        model : :obj:`examples.seismic.model.SeismicModel`
+            Model
         isrc : :obj:`int`
             Index of source to model
         dt : :obj:`float`, optional
@@ -285,27 +291,31 @@ class AcousticWave2D():
             Data of size ``nr \times nt``
 
         """
+        # Create geometry
+        geometry = self._create_geometry(model,
+                                         self.src[0][:1], self.src[1][:1], self.rec[0], self.rec[1], 
+                                         self.t0, self.tn, self.src_type, f0=self.f0, dt=self.dt)
+
         # Update source location in geometry
-        geometry = self.geometry1shot
-        geometry.src_positions[0, :] = self.geometry.src_positions[isrc, :]
+        geometry.src_positions[0, :] = (self.src[0][isrc], self.src[1][isrc])
 
         # Re-create source (if wav is not None)
         if self.wav is None:
             src = geometry.src
         else:
-            src = CustomSource(name='src', grid=self.model.grid,
+            src = CustomSource(name='src', grid=model.grid,
                                wav=self.wav, npoint=1,
                                time_range=geometry.time_axis)
             src.coordinates.data[0, :] = self.geometry.src_positions[isrc, :]
 
         # Create data object
-        d = Receiver(name='data', grid=self.model.grid,
+        d = Receiver(name='data', grid=model.grid,
                      time_range=geometry.time_axis, 
                      coordinates=geometry.rec_positions)
         # Solve
-        solver = AcousticWaveSolver(self.model, geometry, 
+        solver = AcousticWaveSolver(model, geometry, 
                                     space_order=self.space_order)
-        _, _, _ = solver.forward(vp=self.model.vp, rec=d, src=src)
+        _, _, _ = solver.forward(vp=model.vp, rec=d, src=src, autotune=True)
 
         # Resample
         if dt is None:
@@ -320,7 +330,7 @@ class AcousticWave2D():
         Parameters
         ----------
         dt : :obj:`float`, optional
-            Time sampling used to resample modelled data
+            Time sampling used to resample modelled data in s
 
         Returns
         -------
@@ -328,11 +338,20 @@ class AcousticWave2D():
             Data for all shots
 
         """
-        nsrc = self.geometry.src_positions.shape[0]
+        # Create model
+        if self.vpinit is not None:
+            model = self._create_model(self.shape, self.origin, self.spacing, 
+                                       self.vpinit, self.space_order, self.nbl)
+        if self.vp is not None:
+            model = self._create_model(self.shape, self.origin, self.spacing, 
+                                       self.vp, self.space_order, self.nbl)
+        
+        # Run modelling
+        nsrc = self.src[0].size
         dtot = []
 
         for isrc in tqdm(range(nsrc)):
-            d = self._mod_oneshot(isrc, dt)
+            d = self._mod_oneshot(model, isrc, dt)
             dtot.append(d)
             if self.clearcache:
                 clear_devito_cache()
@@ -346,7 +365,7 @@ class AcousticWave2D():
         Parameters
         ----------
         dt : :obj:`float`, optional
-            Time sampling used to resample modelled data
+            Time sampling used to resample modelled data in s
 
         Returns
         -------
@@ -377,7 +396,7 @@ class AcousticWave2D():
 
         """
         # Compute synthetic data and full forward wavefield u0
-        _, u0, _ = solver.forward(vp=vp, save=True, rec=d_syn, src=src)
+        _, u0, _ = solver.forward(vp=vp, save=True, rec=d_syn, src=src, autotune=True)
         
         # Compute loss
         if computeloss:
@@ -387,7 +406,7 @@ class AcousticWave2D():
             adjsrc.data[:] = self._adjoint_source(d_syn.data[:].ravel(), isrc).reshape(adjsrc.data.shape)
 
             # Compute gradient
-            solver.gradient(rec=adjsrc, u=u0, vp=vp, grad=grad, checkpointing=self.checkpointing)
+            solver.gradient(rec=adjsrc, u=u0, vp=vp, grad=grad, checkpointing=self.checkpointing, autotune=True)
         
         if computeloss and computegrad:
             return loss, grad
@@ -401,8 +420,8 @@ class AcousticWave2D():
         
         Parameters
         ----------
-        vp : :obj:`devito.Function`
-            Velocity model
+        vp : :obj:`numpy.ndarray`
+            Velocity model in km/s
         isrcs : :obj:`list`, optional
             Indices of shots to be used in gradient computation 
             (if ``None``, use all shots whose number is inferred from ``dobs``)
@@ -421,45 +440,52 @@ class AcousticWave2D():
             Gradient of size ``(nx, nz)``
 
         """
+        # Create model
+        model = self._create_model(self.shape, self.origin, self.spacing, 
+                                   self.vp, self.space_order, self.nbl)
+        modelinit = self._create_model(self.shape, self.origin, self.spacing, 
+                                       vp, self.space_order, self.nbl)
+        
         # Identify number of shots
         if isrcs is None:
-            nsrc = self.geometry.src_positions.shape[0]
+            nsrc = self.src[0].size
             isrcs = range(nsrc)
 
         # Geometry for single source
-        geometry = self.geometry1shot
+        geometry = self._create_geometry(model,
+                                         self.src[0][:1], self.src[1][:1], self.rec[0], self.rec[1], 
+                                         self.t0, self.tn, self.src_type, f0=self.f0, dt=self.dt)
 
         # Re-create source (if wav is not None)
         if self.wav is None:
             src = geometry.src
         else:
-            src = CustomSource(name='src', grid=self.model.grid if self.modelexists else self.initmodel.grid,
+            src = CustomSource(name='src', grid=model.grid,
                                wav=self.wav, npoint=1,
                                time_range=geometry.time_axis)
 
         # Solver
-        solver = AcousticWaveSolver(self.model if self.modelexists else self.initmodel,
-                                    geometry,
+        solver = AcousticWaveSolver(model, geometry,
                                     space_order=self.space_order)
         
         # Symbols to hold the observed data, modelled data, adjoint source, and gradient
-        d_syn = Receiver(name='d_syn', grid=self.initmodel.grid,
+        d_syn = Receiver(name='d_syn', grid=model.grid,
                          time_range=geometry.time_axis, 
                          coordinates=geometry.rec_positions)
-        adjsrc = Receiver(name='adjsrc', grid=self.initmodel.grid,
+        adjsrc = Receiver(name='adjsrc', grid=model.grid,
                           time_range=geometry.time_axis, 
                           coordinates=geometry.rec_positions)
-        grad = Function(name="grad", grid=self.initmodel.grid)
+        grad = Function(name="grad", grid=model.grid)
 
         # Compute loss and gradient
         loss = 0.
         for isrc in tqdm(isrcs):
             # Update source location in geometry
-            geometry.src_positions[0, :] = self.geometry.src_positions[isrc, :]
-            src.coordinates.data[0, :] = self.geometry.src_positions[isrc, :]
+            geometry.src_positions[0, :] = (self.src[0][isrc], self.src[1][isrc])
+            src.coordinates.data[0, :] = (self.src[0][isrc], self.src[1][isrc])
 
             # Compute loss and gradient for one shot
-            lossgrad = self._loss_grad_oneshot(vp, src, solver, d_syn, adjsrc, grad, isrc,
+            lossgrad = self._loss_grad_oneshot(modelinit.vp, src, solver, d_syn, adjsrc, grad, isrc,
                                                computeloss=computeloss, computegrad=computegrad)
             if self.clearcache:
                 clear_devito_cache()
@@ -481,7 +507,7 @@ class AcousticWave2D():
 
         # Postprocess loss and gradient
         grad = self._crop_model(grad, self.nbl)
-        vp = self._crop_model(vp.data[:], self.nbl)
+        vp = self._crop_model(modelinit.vp.data[:], self.nbl)
         if postprocess is not None:
             loss, grad = postprocess(vp, loss, grad)
 
@@ -529,15 +555,15 @@ class AcousticWave2D():
 
         # Convert x to velocity
         if convertvp is None:
-            vp = x.reshape(self.initmodel.shape)
+            vp = x.reshape(self.shape)
         else:
-            vp = convertvp(x.reshape(self.initmodel.shape))
+            vp = convertvp(x.reshape(self.shape))
 
         # Overwrite current velocity in devito model used to compute the synthetic data
-        self.initmodel.update('vp', vp.reshape(self.initmodel.shape))
+        # self.initmodel.update('vp', vp.reshape(self.initmodel.shape))
         
         # Evaluate objective function and gradient
-        lossgrad = self._loss_grad(self.initmodel.vp,
+        lossgrad = self._loss_grad(vp.reshape(self.shape),
                                    postprocess=postprocess,
                                    computeloss=computeloss,
                                    computegrad=computegrad)
