@@ -6,7 +6,7 @@
 #
 # M. Ravasi, 19/07/2024
 
-echo 'Creating Devito-fwi environmentw with Torch-GPU'
+echo 'Creating Devito-fwi environment with Torch-GPU'
 
 # create conda env
 conda env create -f environment-gpu.yml
