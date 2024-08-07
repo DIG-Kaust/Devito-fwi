@@ -54,14 +54,12 @@ class AcousticWave2D():
     dt : :obj:`int`, optional
         Time step in s (if not provided this is directly inferred by devito)
     vp : :obj:`numpy.ndarray`, optional
-        Velocity model in km/s for modelling, 
+        Velocity model in km/s for modelling
         (use ``None`` if the data is already available)
-    vpinit : :obj:`numpy.ndarray`, optional
-        Initial velocity model in km/s as starting guess for inversion
     vprange : :obj:`tuple`, optional
         Velocity range (min, max) to be used in loss and gradient computations
-        (can be provided instead of ``vp`` to create a propagator for ``vpinit``
-        with a time axis that is however consistent with that of the data modelled with ``vp``)
+        (can be provided instead of ``vp`` to create a propagator with a time axis 
+        that is consistent with that of the data modelled with ``vp``)
     space_order : :obj:`int`, optional
         Spatial ordering of FD stencil
     nbl : :obj:`int`, optional
@@ -99,7 +97,6 @@ class AcousticWave2D():
         tn: float,
         dt: Optional[float] = None,
         vp: Optional[NDArray] = None,
-        vpinit: Optional[NDArray] = None,
         vprange: Optional[Tuple] = None,
         space_order: Optional[int] = 4,
         nbl: Optional[int] = 20,
@@ -113,21 +110,17 @@ class AcousticWave2D():
         base_comm: Optional[MPIType] = None,
     ) -> None:
     
-        # Velocity checks to ensure that vp or vint are not both provided
-        if vp is not None and vpinit is not None:
-            raise ValueError("Provide either vp or vpinit, not both...")
-        
+        # Check to ensure that vp or vprange is provided
+        if vp is None and vprange is None:
+            raise ValueError("Provide either vp or vprange, not none...")
+        elif vp is not None and vprange is not None:
+            raise ValueError("Provide either vp or vprange, not both...")
+
         # Create vp if not provided and vprange is available
-        if vp is None and vprange is not None:
+        if vprange is not None:
             vp = vprange[0] * np.ones(shape)
             vp[-1, -1] = vprange[1]
-
-        # Velocity checks to ensure either vp or vint are provided
-        if vp is None and vpinit is None:
-            raise ValueError("Either vp or vpinit must be provided...")
-        #if vpinit is not None and loss is None:
-        #    raise ValueError("Must provide a loss to be able to run inversion...")
-           
+      
         # Geometry parameters
         self.src = (src_x, src_z)
         self.rec = (rec_x, rec_z)
@@ -156,8 +149,6 @@ class AcousticWave2D():
         
         # Model
         self.vp = vp
-        self.vpinit = vpinit
-        self.modelexists = True if vp is not None else False
 
     @staticmethod
     def _crop_model(m: NDArray, nbl: int) -> NDArray:
@@ -289,6 +280,8 @@ class AcousticWave2D():
         -------
         d : :obj:`np.ndarray`
             Data of size ``nr \times nt``
+        dt : :obj:`float`
+            Time sampling
 
         """
         # Create geometry
@@ -308,21 +301,18 @@ class AcousticWave2D():
                                time_range=geometry.time_axis)
             src.coordinates.data[0, :] = self.geometry.src_positions[isrc, :]
 
-        # Create data object
-        d = Receiver(name='data', grid=model.grid,
-                     time_range=geometry.time_axis, 
-                     coordinates=geometry.rec_positions)
         # Solve
         solver = AcousticWaveSolver(model, geometry, 
                                     space_order=self.space_order)
-        _, _, _ = solver.forward(vp=model.vp, rec=d, src=src, autotune=True)
+        d, _, _ = solver.forward(vp=model.vp, src=src, autotune=True)
 
         # Resample
         if dt is None:
+            dt = geometry.dt
             d = d.data.copy()
         else:
             d = d.resample(dt).data.copy()
-        return d
+        return d, dt
 
     def mod_allshots(self, dt=None) -> NDArray:
         """FD modelling for all shots
@@ -336,28 +326,27 @@ class AcousticWave2D():
         -------
         dtot : :obj:`np.ndarray`
             Data for all shots
+        dt : :obj:`float`
+            Time sampling
 
         """
         # Create model
-        if self.vpinit is not None:
-            model = self._create_model(self.shape, self.origin, self.spacing, 
-                                       self.vpinit, self.space_order, self.nbl)
-        if self.vp is not None:
-            model = self._create_model(self.shape, self.origin, self.spacing, 
-                                       self.vp, self.space_order, self.nbl)
-        
+        model = self._create_model(self.shape, self.origin, self.spacing, 
+                                   self.vp, self.space_order, self.nbl)
+
         # Run modelling
         nsrc = self.src[0].size
         dtot = []
 
         for isrc in tqdm(range(nsrc)):
-            d = self._mod_oneshot(model, isrc, dt)
+            d, dt = self._mod_oneshot(model, isrc, dt)
             dtot.append(d)
             if self.clearcache:
                 clear_devito_cache()
         dtot = np.array(dtot).reshape(nsrc, d.shape[0], d.shape[1])
         
-        return dtot
+        return dtot, dt
+    
 
     def mod_allshots_mpi(self, dt=None) -> NDArray:
         """FD modelling for all shots with mpi gathering
@@ -371,14 +360,16 @@ class AcousticWave2D():
         -------
         d : :obj:`np.ndarray`
             Data for all shots
+        dt : :obj:`float`
+            Time sampling
 
         """
-        dtotrank = self.mod_allshots(dt)
+        dtotrank, dt = self.mod_allshots(dt)
 
         # gather shots from all ranks
         dtot = np.concatenate(self.base_comm.allgather(dtotrank), axis=0)
         
-        return dtot
+        return dtot, dt
 
     def _adjoint_source(self, d_syn, isrc):
         """Adjoint source computation
@@ -387,7 +378,7 @@ class AcousticWave2D():
         """
         return self.loss.grad(d_syn, isrc)
 
-    def _loss_grad_oneshot(self, vp, src, solver, d_syn, adjsrc, grad, isrc,
+    def _loss_grad_oneshot(self, vp, src, solver, isrc,
                            computeloss=True, computegrad=True) -> Tuple[float, NDArray]:
         """Raw loss function and gradient for one shot
 
@@ -396,17 +387,17 @@ class AcousticWave2D():
 
         """
         # Compute synthetic data and full forward wavefield u0
-        _, u0, _ = solver.forward(vp=vp, save=True, rec=d_syn, src=src, autotune=True)
+        adjsrc, u0, _ = solver.forward(vp=vp, save=True, src=src, autotune=True)
         
         # Compute loss
         if computeloss:
-            loss = self.loss(d_syn.data[:].ravel(), isrc)
+            loss = self.loss(adjsrc.data[:].ravel(), isrc)
         if computegrad:
             # Compute adjoint source
-            adjsrc.data[:] = self._adjoint_source(d_syn.data[:].ravel(), isrc).reshape(adjsrc.data.shape)
+            adjsrc.data[:] = self._adjoint_source(adjsrc.data[:].ravel(), isrc).reshape(adjsrc.data.shape)
 
             # Compute gradient
-            solver.gradient(rec=adjsrc, u=u0, vp=vp, grad=grad, checkpointing=self.checkpointing, autotune=True)
+            grad, _ = solver.gradient(rec=adjsrc, u=u0, vp=vp, checkpointing=self.checkpointing, autotune=True)
         
         if computeloss and computegrad:
             return loss, grad
@@ -440,11 +431,13 @@ class AcousticWave2D():
             Gradient of size ``(nx, nz)``
 
         """
-        # Create model
+        # Create model with class vp to define a geometry and time axis consistent with 
+        # the observed data and one with provided vp (to be used as input for loss and
+        # gradient computation)
         model = self._create_model(self.shape, self.origin, self.spacing, 
                                    self.vp, self.space_order, self.nbl)
-        modelinit = self._create_model(self.shape, self.origin, self.spacing, 
-                                       vp, self.space_order, self.nbl)
+        modelvp = self._create_model(self.shape, self.origin, self.spacing, 
+                                     vp, self.space_order, self.nbl)
         
         # Identify number of shots
         if isrcs is None:
@@ -468,15 +461,6 @@ class AcousticWave2D():
         solver = AcousticWaveSolver(model, geometry,
                                     space_order=self.space_order)
         
-        # Symbols to hold the observed data, modelled data, adjoint source, and gradient
-        d_syn = Receiver(name='d_syn', grid=model.grid,
-                         time_range=geometry.time_axis, 
-                         coordinates=geometry.rec_positions)
-        adjsrc = Receiver(name='adjsrc', grid=model.grid,
-                          time_range=geometry.time_axis, 
-                          coordinates=geometry.rec_positions)
-        grad = Function(name="grad", grid=model.grid)
-
         # Compute loss and gradient
         loss = 0.
         for isrc in tqdm(isrcs):
@@ -485,18 +469,25 @@ class AcousticWave2D():
             src.coordinates.data[0, :] = (self.src[0][isrc], self.src[1][isrc])
 
             # Compute loss and gradient for one shot
-            lossgrad = self._loss_grad_oneshot(modelinit.vp, src, solver, d_syn, adjsrc, grad, isrc,
+            lossgrad = self._loss_grad_oneshot(modelvp.vp, src, solver, isrc,
                                                computeloss=computeloss, computegrad=computegrad)
-            if self.clearcache:
-                clear_devito_cache()
-
+            
             if computeloss and computegrad:
                 loss += lossgrad[0]
+                if isrc == 0:
+                    grad = lossgrad[1].data[:]
+                else:
+                    grad += lossgrad[1].data[:]
             elif computeloss:
                 loss += lossgrad
-
-        if computegrad:
-            grad = grad.data[:]
+            elif computegrad:
+                if isrc == 0:
+                    grad = lossgrad.data[:]
+                else:
+                    grad += lossgrad[1].data[:]
+            
+            if self.clearcache:
+                clear_devito_cache()
 
         # Gather gradients 
         if self.base_comm is not None:
@@ -507,7 +498,7 @@ class AcousticWave2D():
 
         # Postprocess loss and gradient
         grad = self._crop_model(grad, self.nbl)
-        vp = self._crop_model(modelinit.vp.data[:], self.nbl)
+        vp = self._crop_model(modelvp.vp.data[:], self.nbl)
         if postprocess is not None:
             loss, grad = postprocess(vp, loss, grad)
 
