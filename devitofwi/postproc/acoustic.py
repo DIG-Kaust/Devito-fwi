@@ -80,13 +80,13 @@ class PostProcessVP():
         # Scale to obtain velocity gradient
         grad = - grad / (vp ** 3)
 
-        # Mask gradient
-        if self.mask is not None:
-            grad *= self.mask
-
         # Smooth gradient
         if self.sigmas is not None:
             grad = gaussian_filter(grad, sigma=self.sigmas)
+        
+        # Mask gradient
+        if self.mask is not None:
+            grad *= self.mask
 
         # Rescale loss and gradient
         loss /= self.scaling

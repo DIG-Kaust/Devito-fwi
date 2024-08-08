@@ -14,6 +14,8 @@ from examples.seismic import AcquisitionGeometry, Model, Receiver
 from examples.seismic.acoustic import AcousticWaveSolver
 from devitofwi.devito.source import CustomSource
 
+import matplotlib.pyplot as plt
+
 try:
     from mpi4py import MPI
     mpitype = MPI.Comm
@@ -49,7 +51,7 @@ class AcousticWave2D():
         Initial time in ms
     tn : :obj:`int`
         Final time in ms
-    dt : :obj:`int`, optional
+    dt : :obj:`float`, optional
         Time step in ms (if not provided this is directly inferred by devito)
     vp : :obj:`numpy.ndarray`, optional
         Velocity model in m/s for modelling, 
@@ -79,7 +81,11 @@ class AcousticWave2D():
         Type of elements in input array.
     base_comm : :obj:`mpi4py.MPI.Comm`, optional
         Base MPI Communicator. Defaults to ``mpi4py.MPI.COMM_WORLD``.
-    
+    fs : :obj:'bool', optional
+        Use free surface boundary at the top of the model.
+    streamer_acquisition : :obj:'bool', optional
+        Update receiver locations in geometry for each source
+
     """
 
     def __init__(
@@ -106,6 +112,8 @@ class AcousticWave2D():
         loss: Optional[Type] = None,
         dtype: Optional[DTypeLike] = "float32",
         base_comm: Optional[MPIType] = None,
+        fs: Optional[bool] = False,
+        streamer_acquisition: Optional[bool] = False,
     ) -> None:
 
         # Create vp if not provided and vprange is available
@@ -122,6 +130,8 @@ class AcousticWave2D():
         # Modelling parameters
         self.space_order = space_order
         self.nbl = nbl
+        self.fs = fs
+        self.streamer_acquisition = streamer_acquisition
         self.checkpointing = checkpointing
         self.wav = wav
 
@@ -136,11 +146,11 @@ class AcousticWave2D():
         self.modelexists = True if vp is not None else False
 
         if vpinit is not None:
-            self.initmodel = self._create_model(shape, origin, spacing, vpinit, space_order, nbl)
+            self.initmodel = self._create_model(shape, origin, spacing, vpinit, space_order, nbl, fs)
         if vp is not None:
-            self.model = self._create_model(shape, origin, spacing, vp, space_order, nbl)
+            self.model = self._create_model(shape, origin, spacing, vp, space_order, nbl, fs)
         # else:
-        #    self.model = self._create_model(shape, origin, spacing, vpinit, space_order, nbl)
+        #    self.model = self._create_model(shape, origin, spacing, vpinit, space_order, nbl, fs)
 
         # Create geometry
         self.geometry = self._create_geometry(self.model if vp is not None else self.initmodel,
@@ -151,9 +161,12 @@ class AcousticWave2D():
                                                    f0=f0, dt=dt)
 
     @staticmethod
-    def _crop_model(m: NDArray, nbl: int) -> NDArray:
+    def _crop_model(m: NDArray, nbl: int, fs: bool) -> NDArray:
         """Remove absorbing boundaries from model"""
-        return m[nbl:-nbl, nbl:-nbl]
+        if fs:
+            return m[nbl:-nbl, :-nbl]
+        else:
+            return m[nbl:-nbl, nbl:-nbl]
 
     def _create_model(
         self,
@@ -163,6 +176,7 @@ class AcousticWave2D():
         vp: NDArray,
         space_order: int = 4,
         nbl: int = 20,
+        fs: bool = False,
     ) -> None:
         """Create model
 
@@ -180,6 +194,8 @@ class AcousticWave2D():
             Spatial ordering of FD stencil
         nbl : :obj:`int`, optional
             Number ordering of samples in absorbing boundaries
+        fs : :obj:'bool', optional
+            Use free surface boundary at the top of the model.
 
         Returns
         -------
@@ -196,6 +212,7 @@ class AcousticWave2D():
             spacing=spacing,
             nbl=nbl,
             bcs="damp",
+            fs=fs,
         )
         return model
 
@@ -256,6 +273,7 @@ class AcousticWave2D():
             tn,
             src_type=src_type,
             f0=None if f0 is None else f0 * 1e-3,
+            fs=self.model.fs,
         )
 
         # Resample geometry to user defined dt
@@ -283,6 +301,9 @@ class AcousticWave2D():
         # Update source location in geometry
         geometry = self.geometry1shot
         geometry.src_positions[0, :] = self.geometry.src_positions[isrc, :]
+        if self.streamer_acquisition:
+            # Update receiver locations in geometry
+            geometry.rec_positions[:, 0] = geometry.src_positions[0, 0] + geometry.rec_positions[:, 0]
 
         # Re-create source (if wav is not None)
         if self.wav is None:
@@ -380,7 +401,7 @@ class AcousticWave2D():
             adjsrc.data[:] = self._adjoint_source(d_syn.data[:].ravel(), isrc).reshape(adjsrc.data.shape)
 
             # Compute gradient
-            solver.gradient(rec=adjsrc, u=u0, vp=vp, grad=grad)
+            solver.gradient(rec=adjsrc, u=u0, vp=vp, grad=grad, checkpointing=self.checkpointing)
         
         if computeloss and computegrad:
             return loss, grad
@@ -450,7 +471,16 @@ class AcousticWave2D():
             # Update source location in geometry
             geometry.src_positions[0, :] = self.geometry.src_positions[isrc, :]
             src.coordinates.data[0, :] = self.geometry.src_positions[isrc, :]
-
+            if self.streamer_acquisition:
+                # Update receiver locations in geometry
+                geometry.rec_positions[:, 0] = geometry.src_positions[0, 0] + geometry.rec_positions[:, 0]
+                
+                d_syn = Receiver(name='d_syn', grid=self.initmodel.grid,
+                                 time_range=geometry.time_axis, 
+                                 coordinates=geometry.rec_positions)
+                adjsrc = Receiver(name='adjsrc', grid=self.initmodel.grid,
+                                  time_range=geometry.time_axis, 
+                                  coordinates=geometry.rec_positions)
             # Compute loss and gradient for one shot
             lossgrad = self._loss_grad_oneshot(vp, src, solver, d_syn, adjsrc, grad, isrc,
                                                computeloss=computeloss, computegrad=computegrad)
@@ -470,8 +500,8 @@ class AcousticWave2D():
                 grad = self.base_comm.allreduce(grad, op=MPI.SUM)
 
         # Postprocess loss and gradient
-        grad = self._crop_model(grad, self.nbl)
-        vp = self._crop_model(vp.data[:], self.nbl)
+        grad = self._crop_model(grad, self.nbl, self.fs)
+        vp = self._crop_model(vp.data[:], self.nbl, self.fs)
         if postprocess is not None:
             loss, grad = postprocess(vp, loss, grad)
 

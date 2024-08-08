@@ -6,7 +6,7 @@
 #
 # M. Ravasi, 04/06/2024
 
-echo 'Creating Devito-fwi environmentw with MPI'
+echo 'Creating Devito-fwi environment with MPI'
 
 # create conda env
 conda env create -f environment-mpi.yml
