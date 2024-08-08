@@ -82,7 +82,7 @@ class AcousticWave2D():
     base_comm : :obj:`mpi4py.MPI.Comm`, optional
         Base MPI Communicator. Defaults to ``mpi4py.MPI.COMM_WORLD``.
     fs : :obj:'bool', optional
-        Use free surface boundry at the top of the model.
+        Use free surface boundary at the top of the model.
     streamer_acquisition : :obj:'bool', optional
         Update receiver locations in geometry for each source
 
@@ -195,7 +195,7 @@ class AcousticWave2D():
         nbl : :obj:`int`, optional
             Number ordering of samples in absorbing boundaries
         fs : :obj:'bool', optional
-            Use free surface boundry at the top of the model.
+            Use free surface boundary at the top of the model.
 
         Returns
         -------
@@ -303,10 +303,8 @@ class AcousticWave2D():
         geometry.src_positions[0, :] = self.geometry.src_positions[isrc, :]
         if self.streamer_acquisition:
             # Update receiver locations in geometry
-            dr = geometry.rec_positions[1, 0] - geometry.rec_positions[0, 0]
-            rec_positions = np.arange(geometry.src_positions[0, 0], 
-                                                     geometry.nrec * dr + geometry.src_positions[0, 0], dr)
-            geometry.rec_positions[:, 0] = rec_positions
+            geometry.rec_positions[:, 0] = geometry.src_positions[0, 0] + geometry.rec_positions[:, 0]
+
         # Re-create source (if wav is not None)
         if self.wav is None:
             src = geometry.src
@@ -475,10 +473,7 @@ class AcousticWave2D():
             src.coordinates.data[0, :] = self.geometry.src_positions[isrc, :]
             if self.streamer_acquisition:
                 # Update receiver locations in geometry
-                dr = geometry.rec_positions[1, 0] - geometry.rec_positions[0, 0]
-                rec_positions = np.arange(geometry.src_positions[0, 0], 
-                                                        geometry.nrec * dr + geometry.src_positions[0, 0], dr)
-                geometry.rec_positions[:, 0] = rec_positions
+                geometry.rec_positions[:, 0] = geometry.src_positions[0, 0] + geometry.rec_positions[:, 0]
                 
                 d_syn = Receiver(name='d_syn', grid=self.initmodel.grid,
                                  time_range=geometry.time_axis, 
