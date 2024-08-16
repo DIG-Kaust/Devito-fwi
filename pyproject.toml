@@ -27,6 +27,7 @@ dependencies = [
         "matplotlib",
         "devito",
         "pylops >= 2.0.0",
+        "torch",
     ]
 dynamic = ["version"]
 

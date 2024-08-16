@@ -27,6 +27,7 @@ The following notebooks are provided:
 - :orange_book: ``acoustic/Gradient_comparison.ipynb``: notebook comparing gradients from different objective functions;
 - :orange_book: ``acoustic/Gradient_decoupled.ipynb``: notebook comparing gradient computations with mixed computational graphs including a Torch Module (useful to embed NNs in FWI);
 - :orange_book: ``acoustic/Data_visualization.ipynb``: notebook showcasing different visualization routines;
+- :orange_book: ``acoustic/Acoustic_RTM.ipynb``: notebook performing acoustic RTM;
 - :orange_book: ``acoustic/AcousticVel_L2_1stage.ipynb``: notebook performing acoustic FWI parametrized in velocity with entire data;
 - :orange_book: ``acoustic/AcousticVel_L2_1stagewrapper.ipynb``: notebook performing acoustic FWI parametrized in velocity with entire data using AcousticFWI wrapper;
 - :orange_book: ``acoustic/AcousticVel_L2torch_1stage.ipynb``: notebook performing acoustic FWI parametrized in velocity with entire data using Torch AD-based objective function;

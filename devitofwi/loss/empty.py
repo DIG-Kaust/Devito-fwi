@@ -22,7 +22,6 @@ class Empty():
         self.b = b
         
     def __call__(self, x, i):
-        # not implemented (simply return 0)
         return 0.
     
     def grad(self, x, i):
