@@ -4,14 +4,12 @@ __all__ = ["L2",
 
 import numpy as np
 import torch
-from scipy.linalg import cho_factor, cho_solve
-from scipy.sparse.linalg import lsqr as sp_lsqr
-from pylops import MatrixMult, Identity, TorchOperator
-from pylops.optimization.basic import lsqr
-from pylops.utils.backend import get_array_module, get_module_name
+from pylops import TorchOperator
+
+from devitofwi.nonlinear import NonlinearOperator
 
 
-class L2():
+class L2(NonlinearOperator):
     r"""L2 Norm.
 
     Computes the :math:`\ell_2` norm defined as: :math:`\ell_2(\mathbf{x}) =
@@ -23,34 +21,51 @@ class L2():
         Linear operator
     b : :obj:`numpy.ndarray`, optional
         Data vector
+    size : :obj:`int`, optional
+        Size of the input vector (needed only when both ``Op`` and
+        ``b`` are ``None``)
     
     """
-    def __init__(self, Op=None, b=None):
+    def __init__(self, Op=None, b=None, size=None, dtype="float32"):
         self.Op = Op
         self.b = b
-        
-    def __call__(self, x, i):
-        if self.Op is not None and self.b is not None:
+        if size is None:
+            if b is None:
+                size = Op.shape[1]
+            else:
+                size = b.size
+        super().__init__(size, dtype)
+
+    def loss(self, x, i):
+        if self.Op is not None:
             Op = self.Op[i] if isinstance(self.Op, list) else self.Op
+        
+        if self.Op is not None and self.b is not None:
             f = (1. / 2.) * (np.linalg.norm(Op @ x - self.b[i]) ** 2)
         elif self.b is not None:
             f = (1. / 2.) * (np.linalg.norm(x - self.b[i]) ** 2)
+        elif self.Op is not None:
+            f = (1. / 2.) * (np.linalg.norm(Op @ x) ** 2)
         else:
             f = (1. / 2.) * (np.linalg.norm(x) ** 2)
         return f
     
     def grad(self, x, i):
-        if self.Op is not None and self.b is not None:
+        if self.Op is not None:
             Op = self.Op[i] if isinstance(self.Op, list) else self.Op
+        
+        if self.Op is not None and self.b is not None:
             g = Op.H @ (Op @ x - self.b[i])
         elif self.b is not None:
             g = (x - self.b[i])
+        elif self.Op is not None:
+            g = Op.H @ Op @ x
         else:
             g = x
         return g
 
 
-class L2Torch():
+class L2Torch(NonlinearOperator):
     r"""L2 Norm using Torch and AD.
 
     Computes the :math:`\ell_2` norm defined as: :math:`f(\mathbf{x}) =
@@ -69,8 +84,9 @@ class L2Torch():
     def __init__(self, b, Op=None):
         self.Op = Op
         self.b = b
+        super().__init__(b.size if Op is None else self.Op.shape[1])
 
-    def __call__(self, x, i):
+    def loss(self, x, i):
         self.x = torch.from_numpy(x).requires_grad_()
         if self.Op is not None:
             Op = self.Op[i] if isinstance(self.Op, list) else self.Op

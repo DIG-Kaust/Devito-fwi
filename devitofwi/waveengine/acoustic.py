@@ -5,18 +5,16 @@ from typing import Any, Optional, NewType, Type, Tuple
 import numpy as np
 import matplotlib.pyplot as plt
 
-from pylops import LinearOperator
-from pylops.utils import deps
 from pylops.utils.typing import DTypeLike, InputDimsLike, NDArray, SamplingLike
 from tqdm.autonotebook import tqdm
 
-from devito import Function
-from examples.seismic import AcquisitionGeometry, Model, Receiver
+from examples.seismic import AcquisitionGeometry, Model
 from examples.seismic.model import SeismicModel
 from examples.seismic.acoustic import AcousticWaveSolver
+
+from devitofwi.nonlinear import NonlinearOperator
 from devitofwi.devito.source import CustomSource
 from devitofwi.devito.utils import clear_devito_cache
-
 
 try:
     from mpi4py import MPI
@@ -27,7 +25,7 @@ except:
 MPIType = NewType("MPIType", mpitype)
 
 
-class AcousticWave2D():
+class AcousticWave2D(NonlinearOperator):
     """Devito Acoustic propagator.
 
     This class provides functionalities to model acoustic data and 
@@ -159,7 +157,9 @@ class AcousticWave2D():
 
         # MPI parameters
         self.base_comm = base_comm
-        
+    
+        super().__init__(size=np.prod(shape), dtype=dtype)
+
 
     @staticmethod
     def _crop_model(m: NDArray, nbl: int, fs: bool) -> NDArray:
@@ -283,6 +283,14 @@ class AcousticWave2D():
 
         return geometry
 
+    def model_and_geometry(self):
+        model = self._create_model(self.shape, self.origin, self.spacing, 
+                                   self.vp, self.space_order, self.nbl)
+        geometry = self._create_geometry(model,
+                                         self.src[0][:1], self.src[1][:1], self.rec[0], self.rec[1], 
+                                         self.t0, self.tn, self.src_type, f0=self.f0, dt=self.dt)
+        return model, geometry
+
     def _mod_oneshot(self, model: SeismicModel, isrc: int, dt: float = None) -> NDArray:
         """FD modelling for one shot
 
@@ -321,7 +329,7 @@ class AcousticWave2D():
             src = CustomSource(name='src', grid=model.grid,
                                wav=self.wav, npoint=1,
                                time_range=geometry.time_axis)
-            src.coordinates.data[0, :] = self.geometry.src_positions[isrc, :]
+            src.coordinates.data[0, :] = geometry.src_positions[isrc, :]
 
         # Solve
         solver = AcousticWaveSolver(model, geometry, 
@@ -594,8 +602,8 @@ class AcousticWave2D():
         
         # Display results in debugging mode
         if debug and computeloss and computegrad:
-            print('Debug - loss, scaling, grad.min(), grad.max()',
-                  fval, scaling, grad.min(), grad.max())
+            print('Debug - loss, grad.min(), grad.max()',
+                  loss, grad.min(), grad.max())
             plt.figure()
             plt.imshow(grad.T, vmin=gradlims[0] if gradlims is not None else -grad.max(),
                        vmax=gradlims[1] if gradlims is not None else grad.max(),
