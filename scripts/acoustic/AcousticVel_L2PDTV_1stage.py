@@ -7,6 +7,7 @@ in a distributed manner coupling MPI4py with PyProximal.
 Run as: export DEVITO_LANGUAGE=openmp; export DEVITO_MPI=0; export OMP_NUM_THREADS=6; export MKL_NUM_THREADS=6; export NUMBA_NUM_THREADS=6; mpiexec -n 8 python AcousticVel_L2PDTV_1stage.py 
 """
 
+import os
 import numpy as np
 
 from matplotlib import pyplot as plt
@@ -36,8 +37,13 @@ rank = MPI.COMM_WORLD.Get_rank()
 size = MPI.COMM_WORLD.Get_size()
 
 configuration['log-level'] = 'ERROR'
-clear_devito_cache()
+# clear_devito_cache()
 
+# Path to save figures
+figpath = './figs/AcousticVel_L2PDTV_1stage'
+
+if not os.path.isdir(figpath):
+    os.mkdir(figpath)
 
 # Callback to track model error
 def fwi_callback(xk, vp, vp_error, vp_tmp, m_vmin, m_vmax, rank):
@@ -51,7 +57,7 @@ def fwi_callback(xk, vp, vp_error, vp_tmp, m_vmin, m_vmax, rank):
         plt.colorbar()
         plt.title(f'Inverted VP (iter {len(vp_error)})')
         plt.axis('tight')
-        plt.savefig('figs/InvertedVP_TVtmp.png')
+        plt.savefig(os.path.join(figpath, 'InvertedVPtmp.png'))
         plt.close('all')
 
 def pd_callback(xk, vp, vp_error, m_vmin, m_vmax, rank):
@@ -64,7 +70,7 @@ def pd_callback(xk, vp, vp_error, m_vmin, m_vmax, rank):
         plt.colorbar()
         plt.title(f'Inverted VP (PD iter {len(vp_error)})')
         plt.axis('tight')
-        plt.savefig('figs/InvertedVP_TVpdtmp.png')
+        plt.savefig(os.path.join(figpath, 'InvertedVPpdtmp.png'))
         plt.close('all')
 
 # Nonlinear pyprox wrapper
@@ -181,7 +187,7 @@ if rank == 0:
     plt.scatter(x_s[:,0], x_s[:,1], c='r')
     plt.title('True VP')
     plt.axis('tight')
-    plt.savefig('figs/TrueVel.png')
+    plt.savefig(os.path.join(figpath, 'TrueVel.png'))
 
 # Initial model for FWI by smoothing the true model
 vp_init = gaussian_filter(vp_true, sigma=[15, 10])
@@ -197,7 +203,7 @@ if rank == 0:
     plt.scatter(x_s[:,0], x_s[:,1], c='r')
     plt.title('Initial VP')
     plt.axis('tight')
-    plt.savefig('figs/InitialVel_TV.png')
+    plt.savefig(os.path.join(figpath, 'InitialVel.png'))
 
 ##################################################################
 # Data
@@ -232,6 +238,23 @@ dobs = amod.mod_allshots()
 tobs = amod.geometry.time_axis.time_values * 1e-3
 gain = np.repeat(tobs[:, None], par['nr'], axis=-1)
 dobsgain = dobs * gain
+
+if rank == 0:
+    # Plot shot gathers
+    d_vmin, d_vmax = np.percentile(np.hstack(dobs).ravel(), [2, 98])
+    dg_vmin, dg_vmax = np.percentile(np.hstack(dobsgain).ravel(), [2, 98])
+
+    fig, axs = plt.subplots(1, 3, figsize=(14, 9))
+    for ax, ishot in zip(axs, [0, ns_ranks[rank]//2, ns_ranks[rank]-1]):
+        ax.imshow(dobs[ishot], aspect='auto', cmap='gray',
+                vmin=-d_vmax, vmax=d_vmax)
+    plt.savefig(os.path.join(figpath, 'Data.png'))
+
+    fig, axs = plt.subplots(1, 3, figsize=(14, 9))
+    for ax, ishot in zip(axs, [0, ns_ranks[rank]//2, ns_ranks[rank]-1]):
+        ax.imshow(dobsgain[ishot], aspect='auto', cmap='gray',
+                vmin=-dg_vmax, vmax=dg_vmax)
+    plt.savefig(os.path.join(figpath, 'Datagain.png'))
 
 ##################################################################
 # FWI
@@ -288,17 +311,17 @@ if rank == 0:
     plt.figure(figsize=(14, 5))
     plt.plot(ainv.losshistory, 'k')
     plt.title('Loss history')
-    plt.savefig('figs/Loss_TV.png')
+    plt.savefig(os.path.join(figpath, 'Loss.png'))
 
     plt.figure(figsize=(14, 5))
     plt.plot(vp_error, 'k')
     plt.title('Model error history')
-    plt.savefig('figs/ModelError_TValliters.png')
+    plt.savefig(os.path.join(figpath, 'ModelErrorAlliters.png'))
 
     plt.figure(figsize=(14, 5))
     plt.plot(vp_inverror, 'k')
     plt.title('Model error history')
-    plt.savefig('figs/ModelError_TV.png')
+    plt.savefig(os.path.join(figpath, 'ModelError.png'))
 
     plt.figure(figsize=(14, 5))
     plt.imshow(vp_inv.T, vmin=m_vmin, vmax=m_vmax, cmap='jet', extent=(x[0], x[-1], z[-1], z[0]))
@@ -307,4 +330,4 @@ if rank == 0:
     plt.scatter(x_s[:,0], x_s[:,1], c='r')
     plt.title('Inverted VP')
     plt.axis('tight')
-    plt.savefig('figs/InvertedVP_TV.png')
+    plt.savefig(os.path.join(figpath, 'InvertedVP.png'))
