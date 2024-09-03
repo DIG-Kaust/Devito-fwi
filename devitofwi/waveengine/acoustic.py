@@ -54,7 +54,7 @@ class AcousticWave2D(NonlinearOperator):
     dt : :obj:`float`, optional
         Time step in s (if not provided this is directly inferred by devito)
     vp : :obj:`numpy.ndarray`, optional
-        Velocity model in km/s for modelling
+        Velocity model in km/s for modelling of size :math:`n_x \times n_z`
         (use ``None`` if the data is already available)
     vprange : :obj:`tuple`, optional
         Velocity range in km/s ``(vmin, vmax)``, to be used in loss and gradient computations

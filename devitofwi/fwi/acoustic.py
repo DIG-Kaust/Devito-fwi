@@ -30,10 +30,11 @@ class AcousticFWI2D():
     par : :obj:`dict`
         Parameters of acquisition geometry
     vp_init : :obj:`numpy.ndarray`
-        Initial velocity model in m/s as starting guess for inversion
+        Initial velocity model in km/s of size :math:`n_x \times n_z` to
+        be used as starting guess for inversion
     vp_range : :obj:`tuple`, optional
-        Velocity range (min, max) to be used in the definition of the propagators (to ensure stable and
-        non-dispersive modelling)
+        Velocity range in km/s ``(vmin, vmax)``, to be used in the definition of the
+        propagators (to ensure stable and non-dispersive modelling)
     wav : :obj:`numpy.ndarray`, optional
         Wavelet (if provided ``src_type`` and ``f0`` will be ignored
     loss : :obj:`devitofwi.loss.`, optional
@@ -128,7 +129,7 @@ class AcousticFWI2D():
         self.x = np.arange(par['nx']) * par['dx'] + par['ox']
         self.z = np.arange(par['nz']) * par['dz'] + par['oz']
         self.t = np.arange(par['nt']) * par['dt'] + par['ot']
-        self.tmax = self.t[-1] * 1e3  # in ms
+        self.tmax = self.t[-1]
 
         # Sources
         self.x_s = np.zeros((par['ns'], 2))
@@ -139,7 +140,6 @@ class AcousticFWI2D():
         self.x_r = np.zeros((par['nr'], 2))
         self.x_r[:, 0] = np.arange(par['nr']) * par['dr'] + par['or']
         self.x_r[:, 1] = par['rz']
-
 
     def run(self, dobs, plotflag=False, vlims=None):
         """FWI Runner
@@ -156,6 +156,16 @@ class AcousticFWI2D():
         vlims : :obj:`tuple`, optional
             Limits used to plot the velocity models
 
+        Returns
+        -------
+        vp_inv : :obj:`numpy.ndarray`
+            Inverted velocity model in km/s of size :math:`n_x \times n_z`
+        loss_hist : :obj:`list`
+            Loss history
+        nl : :obj:`dict`
+            Dictionary containing a summary of the inversion process from
+            :func:`scipy.optimize.minimize`
+
         """
 
         # Prepare data and wavelet to allow filtering
@@ -166,17 +176,19 @@ class AcousticFWI2D():
                                   self.x_r[:, 0], self.x_r[:, 1],
                                   0., self.tmax,
                                   vprange=self.vp_range,
-                                  vpinit=self.vp_init,
                                   wav=self.wav, f0=self.par['freq'],
                                   space_order=self.space_order, nbl=self.nbl)
+
+            # Create model and geometry to extract useful information to define the filtering object
+            model, geometry = amod.model_and_geometry()
 
             # Define filter
             if plotflag:
                 plt.figure(figsize=(15, 6))
-            Filt = Filter(self.frequencies, self.nfilts, amod.geometry.dt * 1e-3, plotflag=plotflag)
-            wav = amod.geometry.src.wavelet.copy()
+            Filt = Filter(self.frequencies, self.nfilts, geometry.dt, plotflag=plotflag)
+            wav = geometry.src.wavelet.copy()
             if plotflag:
-                f = np.fft.rfftfreq(self.nfft, amod.geometry.dt * 1e-3)
+                f = np.fft.rfftfreq(self.nfft, amod.geometry.dt)
                 WAV = np.fft.rfft(wav, self.nfft)
                 plt.semilogx(f, 20 * np.log10(np.abs(WAV)) - 28, 'r')
 
@@ -241,7 +253,6 @@ class AcousticFWI2D():
                                   self.x_s[:, 0], self.x_s[:, 1], self.x_r[:, 0], self.x_r[:, 1],
                                   0., self.tmax,
                                   vprange=self.vp_range,
-                                  vpinit=self.vp_init,
                                   wav=wavfilt, f0=self.par['freq'],
                                   space_order=self.space_order, nbl=self.nbl,
                                   loss=lossfc)
@@ -267,14 +278,14 @@ class AcousticFWI2D():
 
             # Inversion
             nl = minimize(ainv.loss_grad,
-                          self.vp_init.ravel() * 1e-3, # km/s
+                          self.vp_init.ravel(),
                           method=self.solver, jac=True,
                           args=(None if self.convertvp is None else self.convertvp.apply,
                                 None if self.postprocess is None else self.postprocess.apply),
                           callback=self.callback,
                           options=self.kwargs_solver)
             vp_inv = nl.x.reshape(self.shape)
-            self.vp_init = vp_inv.copy() * 1e3 # m/s
+            self.vp_init = vp_inv.copy()
 
             loss_hist.append(ainv.losshistory)
 
