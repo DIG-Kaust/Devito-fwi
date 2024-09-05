@@ -21,14 +21,17 @@ class L2(NonlinearOperator):
         Linear operator
     b : :obj:`numpy.ndarray`, optional
         Data vector
+    sigma : :obj:`int`, optional
+        Multiplicative coefficient of L2 norm
     size : :obj:`int`, optional
         Size of the input vector (needed only when both ``Op`` and
         ``b`` are ``None``)
     
     """
-    def __init__(self, Op=None, b=None, size=None, dtype="float32"):
+    def __init__(self, Op=None, b=None, sigma=1., size=None, dtype="float32"):
         self.Op = Op
         self.b = b
+        self.sigma = sigma
         if size is None:
             if b is None:
                 size = Op.shape[1]
@@ -41,13 +44,13 @@ class L2(NonlinearOperator):
             Op = self.Op[i] if isinstance(self.Op, list) else self.Op
         
         if self.Op is not None and self.b is not None:
-            f = (1. / 2.) * (np.linalg.norm(Op @ x - self.b[i]) ** 2)
+            f = (self.sigma / 2.) * (np.linalg.norm(Op @ x - self.b[i]) ** 2)
         elif self.b is not None:
-            f = (1. / 2.) * (np.linalg.norm(x - self.b[i]) ** 2)
+            f = (self.sigma / 2.) * (np.linalg.norm(x - self.b[i]) ** 2)
         elif self.Op is not None:
-            f = (1. / 2.) * (np.linalg.norm(Op @ x) ** 2)
+            f = (self.sigma / 2.) * (np.linalg.norm(Op @ x) ** 2)
         else:
-            f = (1. / 2.) * (np.linalg.norm(x) ** 2)
+            f = (self.sigma / 2.) * (np.linalg.norm(x) ** 2)
         return f
     
     def grad(self, x, i):
@@ -55,13 +58,13 @@ class L2(NonlinearOperator):
             Op = self.Op[i] if isinstance(self.Op, list) else self.Op
         
         if self.Op is not None and self.b is not None:
-            g = Op.H @ (Op @ x - self.b[i])
+            g = self.sigma * (Op.H @ (Op @ x - self.b[i]))
         elif self.b is not None:
-            g = (x - self.b[i])
+            g = self.sigma * (x - self.b[i])
         elif self.Op is not None:
-            g = Op.H @ Op @ x
+            g = self.sigma * (Op.H @ Op @ x)
         else:
-            g = x
+            g = self.sigma * x
         return g
 
 
