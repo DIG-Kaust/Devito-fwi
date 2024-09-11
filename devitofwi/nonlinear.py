@@ -72,10 +72,16 @@ class _SumNonlinearOperator(NonlinearOperator):
         )
 
     def loss(self, x: NDArray, kwargs1={}, kwargs2={}) -> NDArray:
-        return self.args[0].loss(x, **kwargs1) + self.args[1].loss(x, **kwargs2)
+        loss1 = self.args[0].loss(x, **kwargs1)
+        loss2 = self.args[1].loss(x, **kwargs2)
+        return loss1 + loss2
 
     def grad(self, x: NDArray, kwargs1={}, kwargs2={}) -> NDArray:
-        return self.args[0].grad(x, **kwargs1) + self.args[1].grad(x, **kwargs2)
+        grad1 = self.args[0].grad(x, **kwargs1)
+        grad2 = self.args[1].grad(x, **kwargs2)
+        return grad1 + grad2
 
     def loss_grad(self, x: NDArray, kwargs1={}, kwargs2={}) -> NDArray:
-        return self.args[0].loss_grad(x, **kwargs1) + self.args[1].loss_grad(x, **kwargs2)
+        loss1, grad1 = self.args[0].loss_grad(x, **kwargs1)
+        loss2, grad2 = self.args[1].loss_grad(x, **kwargs2)
+        return loss1 + loss2, grad1 + grad2
