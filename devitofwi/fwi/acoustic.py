@@ -261,8 +261,7 @@ class AcousticFWI2D():
                 # Compute first gradient and find scaling
                 if self.postprocess is not None:
                     self.postprocess.scaling = 1.
-                loss, direction = ainv._loss_grad(ainv.initmodel.vp,
-                                                  postprocess=None if self.postprocess is None else self.postprocess.apply)
+                loss, direction = ainv._loss_grad(self.vp_init, postprocess=None if self.postprocess is None else self.postprocess.apply)
                 scaling = direction.max()
                 if self.postprocess is not None:
                     self.postprocess.scaling = scaling
