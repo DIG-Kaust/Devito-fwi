@@ -112,7 +112,7 @@ class Filter():
         """
         inppad = np.pad(inp, (pad, pad))
         itmax = np.argmax(np.abs(inppad))
-        it0 = np.where(np.abs(inppad[:itmax]) < thresh * inppad[itmax])[0][-1]
+        it0 = np.where(np.abs(inppad[:itmax]) < thresh * np.abs(inppad[itmax]))[0][-1]
         for ifilt in range(len(self.filters)):
             inpfilt = apply_filter(self.filters[ifilt], inppad)
             inpfiltenv = np.abs(hilbert(inpfilt))
