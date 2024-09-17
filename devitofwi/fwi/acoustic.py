@@ -43,6 +43,10 @@ class AcousticFWI2D():
         Spatial ordering of FD stencil
     nbl : :obj:`int`, optional
         Number ordering of samples in absorbing boundaries
+    fs : :obj:'bool', optional
+        Use free surface boundary at the top of the model.
+    streamer_acquisition : :obj:'bool', optional
+        Update receiver locations in geometry for each source
     firstscaling : :obj:`bool`, optional
         Compute first gradient and scale all gradients by its maximum or not
     lossop : :obj:`pylops.LinearOperator` or :obj:`tuple`, optional
@@ -79,6 +83,8 @@ class AcousticFWI2D():
                  vp_init, vp_range,
                  wav, loss,
                  space_order=4, nbl=20,
+                 fs: Optional[bool] = False,
+                 streamer_acquisition: Optional[bool] = False,
                  firstscaling=True, lossop=None, postprocess=None, convertvp=None,
                  frequencies=None, nfilts=None, nfft=2**10, wavpad=700,
                  kwargs_loss={},
@@ -93,6 +99,8 @@ class AcousticFWI2D():
         self.loss = loss
         self.space_order = space_order
         self.nbl = nbl
+        self.fs = fs
+        self.streamer_acquisition = streamer_acquisition
         self.firstscaling = firstscaling
         self.postprocess = postprocess
         self.convertvp = convertvp
@@ -123,7 +131,7 @@ class AcousticFWI2D():
         self.origin = (par['ox'], par['oz'])
 
         # Sampling frequency
-        self.fs = 1 / par['dt']
+        # self.fs = 1 / par['dt']
 
         # Axes
         self.x = np.arange(par['nx']) * par['dx'] + par['ox']
@@ -177,7 +185,9 @@ class AcousticFWI2D():
                                   0., self.tmax,
                                   vprange=self.vp_range,
                                   wav=self.wav, f0=self.par['freq'],
-                                  space_order=self.space_order, nbl=self.nbl)
+                                  space_order=self.space_order, nbl=self.nbl,
+                                  fs=self.fs, 
+                                  streamer_acquisition=self.streamer_acquisition)
 
             # Create model and geometry to extract useful information to define the filtering object
             model, geometry = amod.model_and_geometry()
@@ -255,6 +265,8 @@ class AcousticFWI2D():
                                   vprange=self.vp_range,
                                   wav=wavfilt, f0=self.par['freq'],
                                   space_order=self.space_order, nbl=self.nbl,
+                                  fs=self.fs,
+                                  streamer_acquisition=self.streamer_acquisition,
                                   loss=lossfc)
 
             if self.firstscaling:

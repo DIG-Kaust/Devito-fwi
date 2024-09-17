@@ -4,12 +4,10 @@ Acoustic FWI(VP) with entire data
 This example is used to showcase how to perform acoustic FWI in a distributed manner using
 MPI4py.
 
-Run as: export DEVITO_LANGUAGE=openmp; export DEVITO_MPI=0; export OMP_NUM_THREADS=6; export MKL_NUM_THREADS=6; export NUMBA_NUM_THREADS=6; mpiexec -n 8 python AcousticVel_L2_1stage.py 
+Run as: export DEVITO_LANGUAGE=openmp; export DEVITO_MPI=0; export OMP_NUM_THREADS=6; export MKL_NUM_THREADS=6; export NUMBA_NUM_THREADS=6; mpiexec -n 8 python AcousticVel_L2graddescent_1stage.py 
 """
 
-import os
 import numpy as np
-import time
 
 from matplotlib import pyplot as plt
 from mpi4py import MPI
@@ -29,33 +27,19 @@ from devitofwi.waveengine.acoustic import AcousticWave2D
 from devitofwi.preproc.masking import TimeSpaceMasking
 from devitofwi.loss.l2 import L2
 from devitofwi.postproc.acoustic import create_mask, PostProcessVP
+from devitofwi.optimization.firstorder import gradient_descent
 
 comm = MPI.COMM_WORLD
 rank = MPI.COMM_WORLD.Get_rank()
 size = MPI.COMM_WORLD.Get_size()
 
 configuration['log-level'] = 'ERROR'
-# clear_devito_cache()
-
-# Path to save figures
-figpath = './figs/AcousticVel_L2_1stage'
-
-if not os.path.isdir(figpath):
-    os.mkdir(figpath)
+clear_devito_cache()
 
 # Callback to track model error
 def fwi_callback(xk, vp, vp_error):
     vp_error.append(np.linalg.norm((xk - vp.reshape(-1))/vp.reshape(-1)))
-    
-    if rank == 0:
-        plt.figure(figsize=(14, 5))
-        plt.imshow(xk.reshape(vp.shape).T, vmin=m_vmin, vmax=m_vmax, 
-                cmap='jet')
-        plt.colorbar()
-        plt.title(f'Inverted VP (iter {len(vp_error)})')
-        plt.axis('tight')
-        plt.savefig(os.path.join(figpath, 'InvertedVPtmp.png'))
-        plt.close('all')
+
 
 if rank == 0:
     print(f'Distributed FWI ({size} ranks)')
@@ -131,7 +115,7 @@ if rank == 0:
     plt.scatter(x_s[:,0], x_s[:,1], c='r')
     plt.title('True VP')
     plt.axis('tight')
-    plt.savefig(os.path.join(figpath, 'TrueVel.png'))
+    plt.savefig('figs/TrueVel.png')
 
 # Initial model for FWI by smoothing the true model
 vp_init = gaussian_filter(vp_true, sigma=[15,10])
@@ -147,7 +131,7 @@ if rank == 0:
     plt.scatter(x_s[:,0], x_s[:,1], c='r')
     plt.title('Initial VP')
     plt.axis('tight')
-    plt.savefig(os.path.join(figpath, 'InitialVel.png'))
+    plt.savefig('figs/InitialVel.png')
 
 ##################################################################
 # Data
@@ -177,21 +161,6 @@ if rank == 0:
 if rank == 0:
     print('Model data...')
 dobs = amod.mod_allshots()
-
-# Add noise to data
-sigman = 5e-1
-dobs = dobs + np.random.normal(0, sigman, dobs.shape)
-
-if rank == 0:
-    # Plot shot gathers
-    d_vmin, d_vmax = np.percentile(np.hstack(dobs).ravel(), [2, 98])
-
-    fig, axs = plt.subplots(1, 3, figsize=(14, 9))
-    for ax, ishot in zip(axs, [0, ns_ranks[rank]//2, ns_ranks[rank]-1]):
-        ax.imshow(dobs[ishot], aspect='auto', cmap='gray',
-                vmin=-d_vmax, vmax=d_vmax)
-    plt.savefig(os.path.join(figpath, 'Data.png'))
-
 
 ##################################################################
 # Gradient
@@ -230,16 +199,15 @@ if rank == 0:
     plt.scatter(x_s[:,0], x_s[:,1], c='r')
     plt.title('L2 Gradient')
     plt.axis('tight')
-    plt.savefig(os.path.join(figpath, 'Gradient.png'))
+    plt.savefig('figs/Gradient.png')
 
 ##################################################################
 # FWI
 ##################################################################
 
-# L-BFGS parameters
-ftol = 1e-10
+# Gradient descent parameters
+stepsize = 1e-2
 maxiter = 1000
-maxfun = 1000
 vp_error = []
 
 # Run FWI
@@ -248,29 +216,23 @@ postproc = PostProcessVP(scaling=scaling, mask=msk)
 
 if rank == 0:
     print('Run FWI...')
-    tstart = time.time()
-nl = minimize(ainv.loss_grad, vp_init.ravel(), method='L-BFGS-B', jac=True,
-              args=(convertvp, postproc.apply),
-              callback=lambda x: fwi_callback(x, vp=vp_true, vp_error=vp_error), 
-              options={'ftol':ftol, 'maxiter':maxiter, 'maxfun':maxfun, 
-              'disp':True if rank ==0 else False})
-
+    
+vp_inv = gradient_descent(ainv.loss_grad, vp_init.ravel(), stepsize=stepsize, niter=maxiter,
+                          args=(convertvp, postproc.apply),
+                          callback=lambda x: fwi_callback(x, vp=vp_true, vp_error=vp_error), 
+                          show=True if rank ==0 else False)
 if rank == 0:
-    print('\nTotal time (s) = %.2f' % (time.time() - tstart))
-    print('---------------------------------------------------------\n')
-    print(nl)
-
     plt.figure(figsize=(14, 5))
     plt.plot(ainv.losshistory, 'k')
     plt.title('Loss history')
-    plt.savefig(os.path.join(figpath, 'Loss.png'))
+    plt.savefig('figs/Loss_gd.png')
 
     plt.figure(figsize=(14, 5))
     plt.plot(vp_error, 'k')
     plt.title('Model error history')
-    plt.savefig(os.path.join(figpath, 'ModelError.png'))
+    plt.savefig('figs/ModelError_gd.png')
 
-    vp_inv = nl.x.reshape(shape)
+    vp_inv = vp_inv.reshape(shape)
 
     plt.figure(figsize=(14, 5))
     plt.imshow(vp_inv.T, vmin=m_vmin, vmax=m_vmax, cmap='jet', extent=(x[0], x[-1], z[-1], z[0]))
@@ -279,4 +241,4 @@ if rank == 0:
     plt.scatter(x_s[:,0], x_s[:,1], c='r')
     plt.title('Inverted VP')
     plt.axis('tight')
-    plt.savefig(os.path.join(figpath, 'InvertedVP.png'))
+    plt.savefig('figs/InvertedVP_gd.png')

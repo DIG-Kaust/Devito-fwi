@@ -39,11 +39,12 @@ The following notebooks are provided:
 - :orange_book: ``acoustic/AcousticVel_L2_Nstageswrapper.ipynb``: notebook performing acoustic FWI parametrized in velocity with entire data in N frequency stages using AcousticFWI wrapper;
 - :orange_book: ``acoustic/AcousticVel_L2refr_Nstages.ipynb``: notebook performing acoustic FWI parametrized in velocity with only refracted waves in N frequency stages.
 
-
 ## Scripts
 The following scripts are also provided:
 - :orange_book: ``acoustic/Gradient_comparison_mpi.ipynb``: notebook computing gradients distributed across sources;
 - :orange_book: ``acoustic/AcousticVel_L2_1stage.ipynb``: notebook performing acoustic FWI parametrized in velocity distributed across sources;
+- :orange_book: ``acoustic/AcousticVel_L2graddescent_1stage.py``: notebook performing acoustic FWI parametrized in velocity distributed across sources with gradient descent algorithm;
+- :orange_book: ``acoustic/AcousticVel_L2PDTV_1stage.ipynb``: notebook performing acoustic FWI parametrized in velocity distributed across source with primal-dual  algorithm and isotropic total-variation regularization.
 
 
 ## Getting started :space_invader: :robot:
