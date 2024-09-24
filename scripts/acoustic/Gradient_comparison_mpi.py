@@ -38,8 +38,9 @@ configuration['log-level'] = 'ERROR'
 # Path to save figures
 figpath = './figs/Gradient_comparison'
 
-if not os.path.isdir(figpath):
-    os.mkdir(figpath)
+if rank == 0:
+    if not os.path.isdir(figpath):
+        os.mkdir(figpath)
 
 if rank == 0:
     print(f'Distributed Gradient computation ({size} ranks)')

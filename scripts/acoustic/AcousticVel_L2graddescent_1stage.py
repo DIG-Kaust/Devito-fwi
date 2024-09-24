@@ -41,8 +41,9 @@ configuration['log-level'] = 'ERROR'
 # Path to save figures
 figpath = './figs/AcousticVel_L2graddescent_1stage'
 
-if not os.path.isdir(figpath):
-    os.mkdir(figpath)
+if rank == 0:
+    if not os.path.isdir(figpath):
+        os.mkdir(figpath)
 
 # Callback to track model error
 def fwi_callback(xk, vp, vp_error):

@@ -40,8 +40,9 @@ configuration['log-level'] = 'ERROR'
 # Path to save figures
 figpath = './figs/AcousticVel_L2_1stage'
 
-if not os.path.isdir(figpath):
-    os.mkdir(figpath)
+if rank == 0:
+    if not os.path.isdir(figpath):
+        os.mkdir(figpath)
 
 # Callback to track model error
 def fwi_callback(xk, vp, vp_error):
@@ -73,7 +74,6 @@ par = {'nx':601,   'dx':0.015,    'ox':0,
        'nt':3000,  'dt':0.002, 'ot':0,
        'freq':15,
       }
-
 
 # Modelling parameters
 shape = (par['nx'], par['nz'])
