@@ -267,10 +267,11 @@ if rank == 0:
 niter_inner = 10  # number of inner iterations of L-BFGS for f function
 niter = 100  # number of outer iterations for PD
 sigma = 0.01  # scaling factor of TV
-# scaling factor of f (must be comparable to that of TV to enable TV to act 
+# scaling factor of f (f must be comparable to that of TV to enable TV to act
 # on the solution... this is needed because the original scaling of the f function
-# is very large and would not allow TV to contribute)
-scaling = 1e3
+# is very small and would not lead to a good balance with TV - currently this is
+# chosen by trial-and-error)
+scaling = 1e-9
 
 # Define loss 
 Gainop = Diagonal(gain.ravel())
