@@ -110,7 +110,7 @@ class AcousticFWI2D():
         # Since lossop can be a list... in that case wrap it into a tuple of size 1
         if isinstance(lossop, tuple) and len(lossop) != len(frequencies):
             raise ValueError('lossop and frequencies must have the same dimensions...')
-        self.lossop = lossop if isinstance(lossop, tuple) else (lossop, )
+        self.lossop = lossop if isinstance(lossop, tuple) else (lossop, ) * len(frequencies)
 
         # Save parameters for FWI stages
         self.frequencies = _value_or_sized_to_tuple(frequencies)
@@ -129,9 +129,6 @@ class AcousticFWI2D():
         self.shape = (par['nx'], par['nz'])
         self.spacing = (par['dx'], par['dz'])
         self.origin = (par['ox'], par['oz'])
-
-        # Sampling frequency
-        # self.fs = 1 / par['dt']
 
         # Axes
         self.x = np.arange(par['nx']) * par['dx'] + par['ox']
@@ -198,7 +195,7 @@ class AcousticFWI2D():
             Filt = Filter(self.frequencies, self.nfilts, geometry.dt, plotflag=plotflag)
             wav = geometry.src.wavelet.copy()
             if plotflag:
-                f = np.fft.rfftfreq(self.nfft, amod.geometry.dt)
+                f = np.fft.rfftfreq(self.nfft, geometry.dt)
                 WAV = np.fft.rfft(wav, self.nfft)
                 plt.semilogx(f, 20 * np.log10(np.abs(WAV)) - 28, 'r')
 
