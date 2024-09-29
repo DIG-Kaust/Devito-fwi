@@ -27,11 +27,13 @@ The following notebooks are provided:
 - :orange_book: ``acoustic/Gradient_comparison.ipynb``: notebook comparing gradients from different objective functions;
 - :orange_book: ``acoustic/Gradient_decoupled.ipynb``: notebook comparing gradient computations with mixed computational graphs including a Torch Module (useful to embed NNs in FWI);
 - :orange_book: ``acoustic/Data_visualization.ipynb``: notebook showcasing different visualization routines;
+- :orange_book: ``acoustic/Acoustic_RTM.ipynb``: notebook performing acoustic RTM;
 - :orange_book: ``acoustic/AcousticVel_L2_1stage.ipynb``: notebook performing acoustic FWI parametrized in velocity with entire data;
 - :orange_book: ``acoustic/AcousticVel_L2_1stagewrapper.ipynb``: notebook performing acoustic FWI parametrized in velocity with entire data using AcousticFWI wrapper;
 - :orange_book: ``acoustic/AcousticVel_L2torch_1stage.ipynb``: notebook performing acoustic FWI parametrized in velocity with entire data using Torch AD-based objective function;
 - :orange_book: ``acoustic/AcousticVel_L2adam_1stage.ipynb``: notebook performing acoustic FWI parametrized in velocity with entire data wrapping wave engine in a Torch AD-based graph and using Adam solver;
 - :orange_book: ``acoustic/AcousticVel_L2refr_1stage.ipynb``: notebook performing acoustic FWI parametrized in velocity with only refracted waves;
+- :orange_book: ``acoustic/AcousticVel_L2smooth_1stage.ipynb``: notebook performing acoustic FWI parametrized in velocity with noisy data and Laplacian regularizer;
 - :orange_book: ``acoustic/AcousticVel_XCorrrefr_1stagewrapper.ipynb``: notebook performing acoustic FWI parametrized in velocity with only refracted waves using XCorr objective function and AcousticFWI wrapper;
 - :orange_book: ``acoustic/AcousticVel_L2_Nstages.ipynb``: notebook performing acoustic FWI parametrized in velocity with entire data in N frequency stages;
 - :orange_book: ``acoustic/AcousticVel_L2_Nstageswrapper.ipynb``: notebook performing acoustic FWI parametrized in velocity with entire data in N frequency stages using AcousticFWI wrapper;

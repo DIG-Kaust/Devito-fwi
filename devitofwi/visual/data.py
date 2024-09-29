@@ -87,9 +87,9 @@ def display_multiple_gathers(data, ishots=None, irecs=None,
 def display_sidebyside(data, data1, ishot, srcs, recs, t=None,
                        figsize=(15, 5), vlims=None, vclip=1.,
                        cmap='gray', titles=None):
-    """Display multiple gathers
+    """Display datasets side-by-side
 
-    Display multiple shot or receiver gathers side by side.
+    Display a shot (or receiver) gather from two different datasets side by side.
 
     Parameters
     ----------
@@ -162,4 +162,91 @@ def display_sidebyside(data, data1, ishot, srcs, recs, t=None,
         ax.axis('tight')
         ax.set_xlabel('Offset [m]')
     axs[0].set_ylabel('Time [s]')
+    fig.tight_layout()
+    return fig, axs
+
+
+def display_alternate(data, data1, ishot, srcs, recs, t=None, nalt=2,
+                      figsize=(15, 5), vlims=None, vclip=1.,
+                      cmap='gray', titles=None):
+    """Display data in alternate fashio
+
+    Display a shot (or receiver) gather from two different datasets alternating
+    a group of traces of one to the same group of the other, and so on and so forth.
+
+    Parameters
+    ----------
+    data : :obj:`numpy.ndarray`
+        Data of size `ns x nt x nr`
+    data : :obj:`numpy.ndarray`
+        Second data of size `ns x nt x nr`
+    ishot : :obj:`int`
+        Index of shot to display
+    srcs : :obj:`numpy.ndarray`
+        Source array
+    recs : :obj:`numpy.ndarray`
+        Receiver array
+    nalt : :obj:`int`, optional
+        Number of alternations between data (must be bigger than 0)
+    t : :obj:`numpy.ndarray`, optional
+        Time axis of size `nt`
+    figsize : :obj:`tuple`, optional
+        Figure size
+    vlims : :obj:`tuple`, optional
+        Colorbar limits
+    vclip : :obj:`tuple`, optional
+        Colorbar clipping to be applied on top of  `vlims`
+    cmap : :obj:`str`, optional
+        Colormap
+    titles : :obj:`tuple`, optional
+        Titles to use for `data` and `data1`
+    
+    Returns
+    -------
+    fig : :obj:`matplotlib.figure.Figure`
+        Figure handle
+    axs : :obj:`list`
+        Axes handles
+
+    """
+    if nalt == 0:
+        raise ValueError('nalt must be bigger than 0')
+    
+    # Extract shot gathers
+    data = data[ishot]
+    data1 = data1[ishot]
+
+    # Define data to display
+    nrecs = recs.size
+    nrecsalt = nrecs // (nalt + 1)
+    irecs = np.arange(0, nrecs + 1, nrecsalt)
+    irecs[-1] = nrecs
+    dataalt = np.zeros_like(data)
+    for ialt in range(irecs.size - 1):
+        if ialt % 2 == 0:
+            dataalt[:, irecs[ialt]:irecs[ialt + 1]] = data[:, irecs[ialt]:irecs[ialt + 1]] 
+        else:
+            dataalt[:, irecs[ialt]:irecs[ialt + 1]] = data1[:, irecs[ialt]:irecs[ialt + 1]] 
+
+    # Define axes
+    off = np.abs(srcs[ishot] - recs)
+    t = (0, data.shape[2]) if t is None else t
+
+    # Define vlims
+    if vlims is None:
+        vlims = (-np.abs(data.ravel()).max(), np.abs(data.ravel()).max())
+    
+    # Define titles
+    titles = (None, None) if titles is None else titles
+
+    # Display
+    fig, ax = plt.subplots(1, 1, figsize=figsize)
+    ax.imshow(dataalt, cmap=cmap, vmin=vclip * vlims[0], 
+              vmax=vclip * vlims[1], 
+              extent=(recs[0], recs[-1], t[-1], t[0]))
+    ax.set_title(titles[0])
+    ax.axis('tight')
+    ax.set_xlabel('Recs [m]')
+    ax.set_ylabel('Time [s]')
+    fig.tight_layout()
     return fig, ax

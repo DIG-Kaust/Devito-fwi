@@ -30,7 +30,7 @@ from devitofwi.devito.utils import clear_devito_cache
 from devitofwi.waveengine.acoustic import AcousticWave2D
 from devitofwi.preproc.masking import TimeSpaceMasking
 from devitofwi.loss.l2 import L2
-from devitofwi.postproc.acoustic import create_mask, PostProcessVP
+from devitofwi.postproc.acoustic import create_mask_value, PostProcessVP
 
 comm = MPI.COMM_WORLD
 rank = MPI.COMM_WORLD.Get_rank()
@@ -42,13 +42,14 @@ configuration['log-level'] = 'ERROR'
 # Path to save figures
 figpath = './figs/AcousticVel_L2PDTV_1stage'
 
-if not os.path.isdir(figpath):
-    os.mkdir(figpath)
+if rank == 0:
+    if not os.path.isdir(figpath):
+        os.mkdir(figpath)
 
 # Callback to track model error
 def fwi_callback(xk, vp, vp_error, vp_tmp, m_vmin, m_vmax, rank):
     vp_tmp[0] = xk
-    vp_error.append(np.linalg.norm((xk - vp.reshape(-1))/vp.reshape(-1)))
+    vp_error.append(np.linalg.norm((xk - vp.reshape(-1)) / vp.reshape(-1)))
 
     if rank == 0:
         plt.figure(figsize=(14, 5))
@@ -121,11 +122,11 @@ if rank == 0:
 # Parameters
 ##################################################################
 
-# Model and aquisition parameters
-par = {'nx':601,   'dx':15,    'ox':0,
-       'nz':221,   'dz':15,    'oz':0,
-       'ns':20,    'ds':300,   'os':1000,  'sz':0,
-       'nr':300,   'dr':30,    'or':0,     'rz':0,
+# Model and acquisition parameters (in km, s, and Hz units)
+par = {'nx':601,   'dx':0.015,    'ox':0,
+       'nz':221,   'dz':0.015,    'oz':0,
+       'ns':20,    'ds':0.300,    'os':1.,  'sz':0,
+       'nr':300,   'dr':0.030,    'or':0,   'rz':0,
        'nt':3000,  'dt':0.002, 'ot':0,
        'freq':15,
       }
@@ -142,7 +143,7 @@ path = '../../data/'
 velocity_file = path + 'Marm.bin'
 
 # Time-space mask parameters
-vwater = 1500
+vwater = 1.5
 toff = 0.45
 
 ##################################################################
@@ -156,7 +157,7 @@ fs = 1 / par['dt']
 x = np.arange(par['nx']) * par['dx'] + par['ox']
 z = np.arange(par['nz']) * par['dz'] + par['oz']
 t = np.arange(par['nt']) * par['dt'] + par['ot']
-tmax = t[-1] * 1e3 # in ms
+tmax = t[-1]
 
 # Sources
 x_s = np.zeros((par['ns'], 2))
@@ -174,11 +175,10 @@ x_r[:, 1] = par['rz']
 
 # Load the true model
 vp_true = np.fromfile(velocity_file, np.float32).reshape(par['nz'], par['nx']).T
-msk = create_mask(vp_true, 1.52) # get the mask for the water layer 
-m_vmin, m_vmax = np.percentile(vp_true, [2,98]) 
+msk = create_mask_value(vp_true, 1.52) # get the mask for the water layer
+m_vmin, m_vmax = np.percentile(vp_true, [2, 98])
 
 if rank == 0:
-    
     plt.figure(figsize=(14, 5))
     plt.imshow(vp_true.T, vmin=m_vmin, vmax=m_vmax, cmap='jet', 
             extent=(x[0], x[-1], z[-1], z[0]))
@@ -221,10 +221,13 @@ amod = AcousticWave2D(shape, origin, spacing,
                       x_s[isin_rank:isend_rank, 0], x_s[isin_rank:isend_rank, 1], 
                       x_r[:, 0], x_r[:, 1], 
                       0., tmax,  
-                      vp=vp_true * 1e3, 
+                      vp=vp_true,
                       src_type="Ricker", f0=par['freq'],
                       space_order=space_order, nbl=nbl,
                       base_comm=comm)
+
+# Create model and geometry to extract useful information to define the filtering object
+model, geometry = amod.model_and_geometry()
 
 # Model data
 if rank == 0:
@@ -232,10 +235,10 @@ if rank == 0:
 
 if rank == 0:
     print('Model data...')
-dobs = amod.mod_allshots()
+dobs, dtobs = amod.mod_allshots()
 
 # Compute gain and apply to observed data
-tobs = amod.geometry.time_axis.time_values * 1e-3
+tobs = geometry.time_axis.time_values
 gain = np.repeat(tobs[:, None], par['nr'], axis=-1)
 dobsgain = dobs * gain
 
@@ -247,13 +250,13 @@ if rank == 0:
     fig, axs = plt.subplots(1, 3, figsize=(14, 9))
     for ax, ishot in zip(axs, [0, ns_ranks[rank]//2, ns_ranks[rank]-1]):
         ax.imshow(dobs[ishot], aspect='auto', cmap='gray',
-                vmin=-d_vmax, vmax=d_vmax)
+                  vmin=-d_vmax, vmax=d_vmax)
     plt.savefig(os.path.join(figpath, 'Data.png'))
 
     fig, axs = plt.subplots(1, 3, figsize=(14, 9))
     for ax, ishot in zip(axs, [0, ns_ranks[rank]//2, ns_ranks[rank]-1]):
         ax.imshow(dobsgain[ishot], aspect='auto', cmap='gray',
-                vmin=-dg_vmax, vmax=dg_vmax)
+                  vmin=-dg_vmax, vmax=dg_vmax)
     plt.savefig(os.path.join(figpath, 'Datagain.png'))
 
 ##################################################################
@@ -261,13 +264,14 @@ if rank == 0:
 ##################################################################
 
 # Parameters
-niter_inner = 10 # number of inner iterations of L-BFGS for f function
-niter = 100 # number of outer iterations for PD
-sigma = 0.01 # scaling factor of TV
-# scaling factor of f (must be comparable to that of TV to enable TV to act 
+niter_inner = 10  # number of inner iterations of L-BFGS for f function
+niter = 100  # number of outer iterations for PD
+sigma = 0.01  # scaling factor of TV
+# scaling factor of f (f must be comparable to that of TV to enable TV to act
 # on the solution... this is needed because the original scaling of the f function
-# is very large and would not allow TV to contribute)
-scaling = 1e3
+# is very small and would not lead to a good balance with TV - currently this is
+# chosen by trial-and-error)
+scaling = 1e-9
 
 # Define loss 
 Gainop = Diagonal(gain.ravel())
@@ -277,8 +281,7 @@ ainv = AcousticWave2D(shape, origin, spacing,
                       x_s[isin_rank:isend_rank, 0], x_s[isin_rank:isend_rank, 1], 
                       x_r[:, 0], x_r[:, 1], 
                       0., tmax,  
-                      vprange=(vp_true.min() * 1e3, vp_true.max() * 1e3),
-                      vpinit=vp_init * 1e3,
+                      vprange=(vp_true.min(), vp_true.max()),
                       src_type="Ricker", f0=par['freq'],
                       space_order=space_order, nbl=nbl,
                       loss=l2loss,
@@ -297,7 +300,7 @@ nl.setup(ainv, None, postproc, ftol=1e-10, maxfun=niter_inner, maxls=2,
 l21 = L21(ndim=2, sigma=sigma)
 Dop = Gradient(dims=shape, edge=True, dtype=np.float64, kind='forward')
 
-L = 8. # np.real((Dop.H*Dop).eigs(neigs=1, which='LM')[0])
+L = 8.  # np.real((Dop.H*Dop).eigs(neigs=1, which='LM')[0])
 tau = 1.
 mu = 0.99 / (tau * L)
 

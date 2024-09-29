@@ -6,8 +6,8 @@ import numpy as np
 from scipy.ndimage import gaussian_filter
 
 
-def create_mask(m, value):
-    """Mask
+def create_mask_value(m, value):
+    """Value-based mask
 
     Create mask based on cut-off ``value``. When the mask is applied
     to a vector, this removes all values before such cut-off.
@@ -30,6 +30,31 @@ def create_mask(m, value):
     return mask
 
 
+def create_mask_depth(m, depth):
+    """Depth-based mask
+
+    Create mask based on ``depth``. When the mask is applied
+    to a vector, this removes all values above a predefined
+    depth index.
+
+    Parameters
+    ----------
+    m : :obj:`float`
+        Model
+    depth : :obj:`int`
+        Depth index
+
+    Returns
+    -------
+    mask : :obj:`float`
+        Mask
+
+    """
+    mask = np.ones_like(m)
+    mask[:, :depth] = 0
+    return mask
+
+
 class PostProcessVP():
     """Postprocess loss and gradient
 
@@ -48,7 +73,7 @@ class PostProcessVP():
         Scaling to apply to loss and gradient
     sigmas : :obj:`tuple`, optional
         Sigmas of gaussian smoothing to apply to gradient
-    mask : :obj:`float`, optional
+    mask : :obj:`numpy.ndarray`, optional
         Mask of size ``(nx, nz)`` to apply to gradient
 
     """
