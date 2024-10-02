@@ -285,7 +285,7 @@ class AcousticWave2D(NonlinearOperator):
 
     def model_and_geometry(self):
         model = self._create_model(self.shape, self.origin, self.spacing, 
-                                   self.vp, self.space_order, self.nbl)
+                                   self.vp, self.space_order, self.nbl, self.fs)
         geometry = self._create_geometry(model,
                                          self.src[0][:1], self.src[1][:1], self.rec[0], self.rec[1], 
                                          self.t0, self.tn, self.src_type, f0=self.f0, dt=self.dt)
@@ -363,7 +363,7 @@ class AcousticWave2D(NonlinearOperator):
         """
         # Create model
         model = self._create_model(self.shape, self.origin, self.spacing, 
-                                   self.vp, self.space_order, self.nbl)
+                                   self.vp, self.space_order, self.nbl, self.fs)
 
         # Run modelling
         nsrc = self.src[0].size
@@ -464,9 +464,9 @@ class AcousticWave2D(NonlinearOperator):
         # the observed data and one with provided vp (to be used as input for loss and
         # gradient computation)
         model = self._create_model(self.shape, self.origin, self.spacing, 
-                                   self.vp, self.space_order, self.nbl)
+                                   self.vp, self.space_order, self.nbl, self.fs)
         modelvp = self._create_model(self.shape, self.origin, self.spacing, 
-                                     vp, self.space_order, self.nbl)
+                                     vp, self.space_order, self.nbl, self.fs)
         
         # Identify number of shots
         if isrcs is None:
