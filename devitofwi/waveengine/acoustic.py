@@ -329,7 +329,8 @@ class AcousticWave2D(NonlinearOperator):
             src = CustomSource(name='src', grid=model.grid,
                                wav=self.wav, npoint=1,
                                time_range=geometry.time_axis)
-            src.coordinates.data[0, :] = geometry.src_positions[isrc, :]
+            geometry.src_positions[0, :] = (self.src[0][isrc], self.src[1][isrc])
+            src.coordinates.data[0, :] = (self.src[0][isrc], self.src[1][isrc])
 
         # Solve
         solver = AcousticWaveSolver(model, geometry, 
