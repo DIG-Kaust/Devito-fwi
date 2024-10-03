@@ -69,7 +69,7 @@ class AcousticWave2D(NonlinearOperator):
     f0 : :obj:`float`, optional
         Source peak frequency in Hz
     wav : :obj:`numpy.ndarray`, optional
-        Wavelet (if provided ``src_type`` and ``f0`` will be ignored
+        Wavelet (if provided ``src_type`` will be ignored)
     fs : :obj:'bool', optional
         Use free surface boundary at the top of the model.
     streamer_acquisition : :obj:'bool', optional

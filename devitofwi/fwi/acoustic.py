@@ -36,7 +36,7 @@ class AcousticFWI2D():
         Velocity range in km/s ``(vmin, vmax)``, to be used in the definition of the
         propagators (to ensure stable and non-dispersive modelling)
     wav : :obj:`numpy.ndarray`, optional
-        Wavelet (if provided ``src_type`` and ``f0`` will be ignored
+        Wavelet (if provided ``src_type`` will be ignored)
     loss : :obj:`devitofwi.loss.`, optional
         Object implementing a loss function and its gradient
     space_order : :obj:`int`, optional
