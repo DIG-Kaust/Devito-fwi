@@ -106,17 +106,17 @@ class AcousticFWI2D():
         self.convertvp = convertvp
         self.callback = callback
 
-        # Save loss/multiple losses
-        # Since lossop can be a list... in that case wrap it into a tuple of size 1
-        if isinstance(lossop, tuple) and len(lossop) != len(frequencies):
-            raise ValueError('lossop and frequencies must have the same dimensions...')
-        self.lossop = lossop if isinstance(lossop, tuple) else (lossop, ) * len(frequencies)
-
         # Save parameters for FWI stages
         self.frequencies = _value_or_sized_to_tuple(frequencies)
         self.nfilts = _value_or_sized_to_tuple(nfilts)
         self.nfft = nfft
         self.wavpad = wavpad
+
+        # Save loss/multiple losses
+        # Since lossop can be a list... in that case wrap it into a tuple of size 1
+        if isinstance(lossop, tuple) and len(lossop) != len(self.frequencies):
+            raise ValueError('lossop and frequencies must have the same dimensions...')
+        self.lossop = lossop if isinstance(lossop, tuple) else (lossop, ) * len(self.frequencies)
 
         # Save parameters for loss
         self.kwargs_loss = kwargs_loss
