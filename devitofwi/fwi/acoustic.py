@@ -12,7 +12,7 @@ from pylops.utils._internal import _value_or_sized_to_tuple
 from pylops.utils.typing import DTypeLike, InputDimsLike, NDArray, SamplingLike
 
 from examples.seismic import AcquisitionGeometry, Model, Receiver
-from examples.seismic.acoustic import AcousticWaveSolver
+from devitofwi.devito.acoustic.wavesolver import AcousticWaveSolver
 
 from devitofwi.devito.source import CustomSource
 from devitofwi.preproc.filtering import filter_data, Filter
@@ -46,7 +46,14 @@ class AcousticFWI2D():
     fs : :obj:'bool', optional
         Use free surface boundary at the top of the model.
     streamer_acquisition : :obj:'bool', optional
-        Update receiver locations in geometry for each source
+        Update receiver locations in geometry for each source.
+    checkpointing : :obj:`bool`, optional
+        Use checkpointing (``True``) or not (``False``). Note that
+        using checkpointing is needed when dealing with large models.
+        Cannot be used with snapshotting (factor).
+    factor : :obj:`int`, optional 
+        Subsampling factor to use snapshots of the wavefield to compute the gradient.
+        Cannot be used with checkpointing.
     firstscaling : :obj:`bool`, optional
         Compute first gradient and scale all gradients by its maximum or not
     lossop : :obj:`pylops.LinearOperator` or :obj:`tuple`, optional
@@ -85,6 +92,8 @@ class AcousticFWI2D():
                  space_order=4, nbl=20,
                  fs: Optional[bool] = False,
                  streamer_acquisition: Optional[bool] = False,
+                 checkpointing: Optional[bool] = False,
+                 factor: Optional[int] = None,
                  firstscaling=True, lossop=None, postprocess=None, convertvp=None,
                  frequencies=None, nfilts=None, nfft=2**10, wavpad=700,
                  kwargs_loss={},
@@ -101,6 +110,8 @@ class AcousticFWI2D():
         self.nbl = nbl
         self.fs = fs
         self.streamer_acquisition = streamer_acquisition
+        self.checkpointing = checkpointing
+        self.factor = factor
         self.firstscaling = firstscaling
         self.postprocess = postprocess
         self.convertvp = convertvp
@@ -264,6 +275,8 @@ class AcousticFWI2D():
                                   space_order=self.space_order, nbl=self.nbl,
                                   fs=self.fs,
                                   streamer_acquisition=self.streamer_acquisition,
+                                  checkpointing = self.checkpointing,
+                                  factor = self.factor,
                                   loss=lossfc)
 
             if self.firstscaling:
