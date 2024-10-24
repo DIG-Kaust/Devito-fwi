@@ -424,8 +424,8 @@ class AcousticWave2D(NonlinearOperator):
 
         """
         # Compute synthetic data and full forward wavefield u0
-        adjsrc, u0, usnaps, _ = solver.forward(vp=vp, save=True, src=src, autotune=True,
-                                       factor=self.factor)
+        adjsrc, u0, usnaps, _ = solver.forward(vp=vp, save=True if self.factor is None else False,
+                                               src=src, autotune=True, factor=self.factor)
         
         # Compute loss
         if computeloss:

@@ -251,8 +251,8 @@ def GradientOperator(model, geometry, space_order=4, save=True,
                                   condition=condition)
     else:
         u = TimeFunction(name='u', grid=model.grid,
-                              save=geometry.nt if save else None,
-                              time_order=2, space_order=space_order)
+                         save=geometry.nt if save else None,
+                         time_order=2, space_order=space_order)
         if kernel == 'OT2':
             gradient_update = Inc(grad, - u * v.dt2)
         elif kernel == 'OT4':
