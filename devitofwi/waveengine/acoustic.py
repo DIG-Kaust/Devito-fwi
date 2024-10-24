@@ -10,8 +10,8 @@ from tqdm.autonotebook import tqdm
 
 from examples.seismic import AcquisitionGeometry, Model
 from examples.seismic.model import SeismicModel
-from examples.seismic.acoustic import AcousticWaveSolver
 
+from devitofwi.devito.acoustic.wavesolver import AcousticWaveSolver
 from devitofwi.nonlinear import NonlinearOperator
 from devitofwi.devito.source import CustomSource
 from devitofwi.devito.utils import clear_devito_cache
@@ -40,7 +40,7 @@ class AcousticWave2D(NonlinearOperator):
     spacing : :obj:`tuple`
         Model spacing in km ``(dx, dz)``
     src_x : :obj:`numpy.ndarray`
-        Source x-coordinates in m
+        Source x-coordinates in km
     src_z : :obj:`numpy.ndarray` or :obj:`float`
         Source z-coordinates in km
     rec_x : :obj:`numpy.ndarray`
@@ -49,7 +49,7 @@ class AcousticWave2D(NonlinearOperator):
         Receiver z-coordinates in km
     t0 : :obj:`float`
         Initial time in s
-    tn : :obj:`int`
+    tn : :obj:`float`
         Final time in s
     dt : :obj:`float`, optional
         Time step in s (if not provided this is directly inferred by devito)
@@ -76,7 +76,11 @@ class AcousticWave2D(NonlinearOperator):
         Update receiver locations in geometry for each source
     checkpointing : :obj:`bool`, optional
         Use checkpointing (``True``) or not (``False``). Note that
-        using checkpointing is needed when dealing with large models
+        using checkpointing is needed when dealing with large models.
+        Cannot be used with snapshotting (factor).
+    factor : :obj:`int`, optional 
+        Subsampling factor to use snapshots of the wavefield to compute the gradient.
+        Cannot be used with checkpointing.
     loss : :obj:`Type`, optional
         Loss object.
     dtype : :obj:`str`, optional
@@ -110,6 +114,7 @@ class AcousticWave2D(NonlinearOperator):
         fs: Optional[bool] = False,
         streamer_acquisition: Optional[bool] = False,
         checkpointing: Optional[bool] = False,
+        factor: Optional[int] = None,
         loss: Optional[Type] = None,
         dtype: Optional[DTypeLike] = "float32",
         clearcache: Optional[bool] = False,
@@ -146,7 +151,9 @@ class AcousticWave2D(NonlinearOperator):
         self.fs = fs
         self.streamer_acquisition = streamer_acquisition
         self.checkpointing = checkpointing
+        self.factor = factor
         self.clearcache = clearcache
+        
 
         # Store model
         self.vp = vp
@@ -335,7 +342,7 @@ class AcousticWave2D(NonlinearOperator):
         # Solve
         solver = AcousticWaveSolver(model, geometry, 
                                     space_order=self.space_order)
-        d, _, _ = solver.forward(vp=model.vp, src=src, autotune=True)
+        d, _, _, _ = solver.forward(vp=model.vp, src=src, autotune=True)
 
         # Resample
         if dt is None:
@@ -417,7 +424,8 @@ class AcousticWave2D(NonlinearOperator):
 
         """
         # Compute synthetic data and full forward wavefield u0
-        adjsrc, u0, _ = solver.forward(vp=vp, save=True, src=src, autotune=True)
+        adjsrc, u0, usnaps, _ = solver.forward(vp=vp, save=True if self.factor is None else False,
+                                               src=src, autotune=True, factor=self.factor)
         
         # Compute loss
         if computeloss:
@@ -427,7 +435,8 @@ class AcousticWave2D(NonlinearOperator):
             adjsrc.data[:] = self._adjoint_source(adjsrc.data[:].ravel(), isrc).reshape(adjsrc.data.shape)
 
             # Compute gradient
-            grad, _ = solver.gradient(rec=adjsrc, u=u0, vp=vp, checkpointing=self.checkpointing, autotune=True)
+            grad, _ = solver.gradient(rec=adjsrc, u=u0, usnaps=usnaps, vp=vp, checkpointing=self.checkpointing, autotune=True,
+                                      factor=self.factor)
 
         if computeloss and computegrad:
             return loss, grad
