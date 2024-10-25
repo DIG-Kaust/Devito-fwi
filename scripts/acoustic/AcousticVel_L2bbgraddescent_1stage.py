@@ -1,10 +1,10 @@
 r"""
-Acoustic FWI(VP) with entire data and fixed-step gradient descent
+Acoustic FWI(VP) with entire data and BB-step gradient descent
 
 This example is used to showcase how to perform acoustic FWI in a distributed manner using
 MPI4py.
 
-Run as: export DEVITO_LANGUAGE=openmp; export DEVITO_MPI=0; export OMP_NUM_THREADS=6; export MKL_NUM_THREADS=6; export NUMBA_NUM_THREADS=6; mpiexec -n 8 python AcousticVel_L2graddescent_1stage.py 
+Run as: export DEVITO_LANGUAGE=openmp; export DEVITO_MPI=0; export OMP_NUM_THREADS=6; export MKL_NUM_THREADS=6; export NUMBA_NUM_THREADS=6; mpiexec -n 8 python AcousticVel_L2bbgraddescent_1stage.py 
 """
 
 import os
@@ -29,7 +29,7 @@ from devitofwi.waveengine.acoustic import AcousticWave2D
 from devitofwi.preproc.masking import TimeSpaceMasking
 from devitofwi.loss.l2 import L2
 from devitofwi.postproc.acoustic import create_mask_value, PostProcessVP
-from devitofwi.optimization.firstorder import gradient_descent
+from devitofwi.optimization.firstorder import barzilai_borwein_gradient_descent
 
 comm = MPI.COMM_WORLD
 rank = MPI.COMM_WORLD.Get_rank()
@@ -39,7 +39,7 @@ configuration['log-level'] = 'ERROR'
 clear_devito_cache()
 
 # Path to save figures
-figpath = './figs/AcousticVel_L2graddescent_1stage'
+figpath = './figs/AcousticVel_L2bbgraddescent_1stage'
 
 if rank == 0:
     if not os.path.isdir(figpath):
@@ -225,7 +225,7 @@ if rank == 0:
 ##################################################################
 
 # Gradient descent parameters
-stepsize = 2e-2 #1e-2
+stepsize = 5e-2
 maxiter = 500
 vp_error = []
 
@@ -236,10 +236,11 @@ postproc = PostProcessVP(scaling=scaling, mask=msk)
 if rank == 0:
     print('Run FWI...')
     
-vp_inv = gradient_descent(ainv.loss_grad, vp_init.ravel(), stepsize=stepsize, niter=maxiter,
-                          args=(convertvp, postproc.apply),
-                          callback=lambda x: fwi_callback(x, vp=vp_true, vp_error=vp_error), 
-                          show=True if rank ==0 else False)
+vp_inv = barzilai_borwein_gradient_descent(ainv.loss_grad, vp_init.ravel(), 
+                                           stepsize=stepsize, niter=maxiter,
+                                           args=(convertvp, postproc.apply),
+                                           callback=lambda x: fwi_callback(x, vp=vp_true, vp_error=vp_error), 
+                                           show=True if rank ==0 else False)
 if rank == 0:
     plt.figure(figsize=(14, 5))
     plt.plot(ainv.losshistory, 'k')
