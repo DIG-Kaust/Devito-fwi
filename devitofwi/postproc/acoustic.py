@@ -1,6 +1,7 @@
-__all__ = ["create_mask",
-           "PostProcessVP",
-           ]
+__all__ = [
+    "create_mask",
+    "PostProcessVP",
+]
 
 import numpy as np
 from scipy.ndimage import gaussian_filter
@@ -14,14 +15,14 @@ def create_mask_value(m, value):
 
     Parameters
     ----------
-    m : :obj:`float`
+    m : :obj:`numpy.ndarray`
         Model
     value : :obj:`float`
         Cut-off value
 
     Returns
     -------
-    mask : :obj:`float`
+    mask : :obj:`numpy.ndarray`
         Mask
 
     """
@@ -39,14 +40,14 @@ def create_mask_depth(m, depth):
 
     Parameters
     ----------
-    m : :obj:`float`
+    m : :obj:`numpy.ndarray`
         Model
     depth : :obj:`int`
         Depth index
 
     Returns
     -------
-    mask : :obj:`float`
+    mask : :obj:`numpy.ndarray`
         Mask
 
     """
