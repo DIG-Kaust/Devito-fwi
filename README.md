@@ -29,6 +29,7 @@ The following notebooks are provided:
 - :orange_book: ``acoustic/Data_visualization.ipynb``: notebook showcasing different visualization routines;
 - :orange_book: ``acoustic/Acoustic_RTM.ipynb``: notebook performing acoustic RTM;
 - :orange_book: ``acoustic/AcousticVel_L2_1stage.ipynb``: notebook performing acoustic FWI parametrized in velocity with entire data;
+- :orange_book: ``acoustic/AcousticVel_L2snap_1stage.ipynb``: notebook performing acoustic FWI parametrized in velocity with entire data and wavefield snap-shotting for the imaging condition;
 - :orange_book: ``acoustic/AcousticVel_L2_1stagewrapper.ipynb``: notebook performing acoustic FWI parametrized in velocity with entire data using AcousticFWI wrapper;
 - :orange_book: ``acoustic/AcousticVel_L2torch_1stage.ipynb``: notebook performing acoustic FWI parametrized in velocity with entire data using Torch AD-based objective function;
 - :orange_book: ``acoustic/AcousticVel_L2adam_1stage.ipynb``: notebook performing acoustic FWI parametrized in velocity with entire data wrapping wave engine in a Torch AD-based graph and using Adam solver;
@@ -41,6 +42,9 @@ The following notebooks are provided:
 
 ## Scripts
 The following scripts are also provided:
+
+- :orange_book: ``acoustic/Gradient_full.ipynb``: notebook computing a single gradient with entire wavefield;
+- :orange_book: ``acoustic/Gradient_snap.ipynb``: notebook computing a single gradient with wavefield snap-shotting (used together with `Gradient_full` to assess memory footprint reduction in case of snap-shotting);
 - :orange_book: ``acoustic/Gradient_comparison_mpi.ipynb``: notebook computing gradients distributed across sources;
 - :orange_book: ``acoustic/AcousticVel_L2_1stage.ipynb``: notebook performing acoustic FWI parametrized in velocity distributed across sources;
 - :orange_book: ``acoustic/AcousticVel_L2graddescent_1stage.py``: notebook performing acoustic FWI parametrized in velocity distributed across sources with gradient descent algorithm;
