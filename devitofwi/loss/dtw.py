@@ -1,11 +1,18 @@
 __all__ = ["SoftDTW"]
 
 import torch
+
 from pylops import TorchOperator
 from tslearn.metrics import SoftDTWLossPyTorch
 
+
 class SoftDTW():
-    r"""
+    r"""Soft-DTW.
+
+    Computes the Soft Dynamic Time Warping (Soft-DTW) loss or the
+    Soft-DTW divergence loss using ``tslearn`` that leverages Torch and
+    Automatic Differentiation for the gradient
+
 
     Parameters
     ----------
