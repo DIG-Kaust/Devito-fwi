@@ -12,6 +12,7 @@ dependencies:
   - tqdm
   - pylops
   - pyproximal
+  - tslearn
   - ipython
   - jupyter
   - pytest
