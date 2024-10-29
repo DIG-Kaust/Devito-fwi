@@ -28,6 +28,7 @@ dependencies = [
         "devito",
         "pylops >= 2.0.0",
         "torch",
+        "tslearn",
     ]
 dynamic = ["version"]
 
