@@ -3,10 +3,16 @@ __all__ = ["L2",
            ]
 
 import numpy as np
-import torch
 from pylops import TorchOperator
 
 from devitofwi.nonlinear import NonlinearOperator
+
+
+try:
+    import torch
+except:
+    print('torch not available, install it '
+          'to be able to use L2Torch...')
 
 
 class L2(NonlinearOperator):

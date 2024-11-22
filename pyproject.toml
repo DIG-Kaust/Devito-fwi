@@ -27,13 +27,15 @@ dependencies = [
         "matplotlib",
         "devito",
         "pylops >= 2.0.0",
-	"tqdm",
-        "torch",
-        "tslearn",
+        "tqdm",
     ]
 dynamic = ["version"]
 
 [project.optional-dependencies]
+deep = [
+    "torch",
+    "tslearn",
+]
 mpi = [
     "mpi4py",
 ]

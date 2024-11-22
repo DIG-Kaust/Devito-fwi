@@ -1,12 +1,12 @@
-__all__ = ["XCorrTorch"]
+__all__ = ["XCorrTorch", ]
 
-import numpy as np
-import torch
-from scipy.linalg import cho_factor, cho_solve
-from scipy.sparse.linalg import lsqr as sp_lsqr
-from pylops import MatrixMult, Identity, TorchOperator
-from pylops.optimization.basic import lsqr
-from pylops.utils.backend import get_array_module, get_module_name
+
+try:
+    import torch
+    from pylops import TorchOperator
+except:
+    print('torch not available, install it '
+          'to be able to use L2Torch...')
 
 
 class XCorrTorch():

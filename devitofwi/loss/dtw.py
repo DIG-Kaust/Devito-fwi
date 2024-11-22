@@ -1,9 +1,14 @@
-__all__ = ["SoftDTW"]
+__all__ = ["SoftDTW", ]
 
-import torch
 
 from pylops import TorchOperator
-from tslearn.metrics import SoftDTWLossPyTorch
+
+try:
+    import torch
+    from tslearn.metrics import SoftDTWLossPyTorch
+except:
+    print('torch and/or tslearn not available, install them '
+          'to be able to use SoftDTW...')
 
 
 class SoftDTW():
@@ -34,7 +39,6 @@ class SoftDTW():
     device : :obj:`str`, optional
         The device to compute the loss on, typically 'cpu' or 'cuda' for GPU acceleration. Defaults to 'cpu'.
 
-    
     """
 
     def __init__(self, Op, b, nr, nt, gamma, normalize=False, t_sub=1, device='cpu'):
