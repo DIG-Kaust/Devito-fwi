@@ -1,7 +1,7 @@
 __all__ = ["AcousticWave2D"]
 
 from typing import Any, Optional, NewType, Type, Tuple
-
+import math
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -89,7 +89,13 @@ class AcousticWave2D(NonlinearOperator):
         Clear devito cache (``True``) or not (``False``) after every modelling step
     base_comm : :obj:`mpi4py.MPI.Comm`, optional
         Base MPI Communicator. Defaults to ``mpi4py.MPI.COMM_WORLD``.
-    
+    sub_gradient : :obj:'bool', optional
+        If True, restricts the computation domain for each shot gather to a specified portion of the model.
+        By default, the domain spans the maximum offset of the data plus an additional 1 km on 
+        both the left and right sides.
+    extent : :obj:`tuple`
+        A tuple specifying the extent (in km) to extend the computation domain on the left and right for 
+        sub_gradient. Default is (1.0, 1.0) km. This parameter is only used when sub_gradient is True.
     """
 
     def __init__(
@@ -119,6 +125,8 @@ class AcousticWave2D(NonlinearOperator):
         dtype: Optional[DTypeLike] = "float32",
         clearcache: Optional[bool] = False,
         base_comm: Optional[MPIType] = None,
+        sub_gradient: Optional[bool] = False,
+        extent: Optional[Tuple] = (1., 1.),
     ) -> None:
 
         # Check to ensure that vp or vprange is provided
@@ -130,7 +138,7 @@ class AcousticWave2D(NonlinearOperator):
         # Create vp if not provided and vprange is available
         if vprange is not None:
             vp = vprange[0] * np.ones(shape)
-            vp[-1, -1] = vprange[1]
+            vp[:, -1] = vprange[1]
         
         # Geometry parameters
         self.src = (src_x, src_z)
@@ -153,6 +161,8 @@ class AcousticWave2D(NonlinearOperator):
         self.checkpointing = checkpointing
         self.factor = factor
         self.clearcache = clearcache
+        self.sub_gradient = sub_gradient
+        self.extent = extent
         
 
         # Store model
@@ -298,6 +308,18 @@ class AcousticWave2D(NonlinearOperator):
                                          self.t0, self.tn, self.src_type, f0=self.f0, dt=self.dt)
         return model, geometry
 
+    def _get_location(self, isrc: int):
+        # Calculate maximum offset in grid units
+        max_offset = (self.rec[0][-1] - self.rec[0][0])
+
+        # Compute x0 with grid conversion and boundary checking
+        x0 = max(0, math.floor((self.src[0][isrc] - self.extent[0]) / self.spacing[0]))
+        
+        # Compute xf with grid conversion and boundary checking
+        xf = min(math.ceil((self.src[0][isrc] + self.extent[1] + max_offset) / self.spacing[0]), self.shape[0] - 1)
+    
+        return (x0, xf)
+    
     def _mod_oneshot(self, model: SeismicModel, isrc: int, dt: float = None) -> NDArray:
         """FD modelling for one shot
 
@@ -370,18 +392,28 @@ class AcousticWave2D(NonlinearOperator):
         
         """
         # Create model
-        model = self._create_model(self.shape, self.origin, self.spacing, 
-                                   self.vp, self.space_order, self.nbl, self.fs)
+        if not self.sub_gradient:
+            model = self._create_model(self.shape, self.origin, self.spacing, 
+                                    self.vp, self.space_order, self.nbl, self.fs)
 
         # Run modelling
         nsrc = self.src[0].size
         dtot = []
         for isrc in tqdm(range(nsrc)):
+            if self.sub_gradient:
+                x0, xf = self._get_location(isrc)
+    
+                model = self._create_model((xf-x0, self.shape[1]), (x0*self.spacing[0], self.origin[1]), self.spacing, 
+                                        self.vp[x0:xf], self.space_order, self.nbl, self.fs)
             d, dt = self._mod_oneshot(model, isrc, dt)
+            if isrc == 0:
+                nt_max = d.shape[0]
+            elif d.shape[0] < nt_max:
+                nt_max = d.shape[0]
             dtot.append(d)
             if self.clearcache:
                 clear_devito_cache()
-        dtot = np.array(dtot).reshape(nsrc, d.shape[0], d.shape[1])
+        dtot = np.array([d[:nt_max] for d in dtot]).reshape(nsrc, nt_max, d.shape[1])
         
         return dtot, dt
 
@@ -470,39 +502,62 @@ class AcousticWave2D(NonlinearOperator):
             Gradient of size ``(nx, nz)``
 
         """
-        # Create model with class vp to define a geometry and time axis consistent with 
-        # the observed data and one with provided vp (to be used as input for loss and
-        # gradient computation)
-        model = self._create_model(self.shape, self.origin, self.spacing, 
-                                   self.vp, self.space_order, self.nbl, self.fs)
-        modelvp = self._create_model(self.shape, self.origin, self.spacing, 
-                                     vp, self.space_order, self.nbl, self.fs)
-        
         # Identify number of shots
         if isrcs is None:
             nsrc = self.src[0].size
             isrcs = range(nsrc)
+        
+        # Create model with class vp to define a geometry and time axis consistent with 
+        # the observed data and one with provided vp (to be used as input for loss and
+        # gradient computation)
+        if not self.sub_gradient:
+            model = self._create_model(self.shape, self.origin, self.spacing, 
+                                    self.vp, self.space_order, self.nbl, self.fs)
+            modelvp = self._create_model(self.shape, self.origin, self.spacing, 
+                                        vp, self.space_order, self.nbl, self.fs)
+            
+            
 
-        # Geometry for single source
-        geometry = self._create_geometry(model,
-                                         self.src[0][:1], self.src[1][:1], self.rec[0], self.rec[1], 
-                                         self.t0, self.tn, self.src_type, f0=self.f0, dt=self.dt)
+            # Geometry for single source
+            geometry = self._create_geometry(model,
+                                            self.src[0][:1], self.src[1][:1], self.rec[0], self.rec[1], 
+                                            self.t0, self.tn, self.src_type, f0=self.f0, dt=self.dt)
 
-        # Re-create source (if wav is not None)
-        if self.wav is None:
-            src = geometry.src
-        else:
-            src = CustomSource(name='src', grid=model.grid,
-                               wav=self.wav, npoint=1,
-                               time_range=geometry.time_axis)
+            # Re-create source (if wav is not None)
+            if self.wav is None:
+                src = geometry.src
+            else:
+                src = CustomSource(name='src', grid=model.grid,
+                                wav=self.wav, npoint=1,
+                                time_range=geometry.time_axis)
 
-        # Solver
-        solver = AcousticWaveSolver(model, geometry,
-                                    space_order=self.space_order)
+            # Solver
+            solver = AcousticWaveSolver(model, geometry,
+                                        space_order=self.space_order)
         
         # Compute loss and gradient
         loss = 0.
         for isrc in tqdm(isrcs):
+            if self.sub_gradient:
+                x0, xf = self._get_location(isrc)
+
+                model = self._create_model((xf-x0, self.shape[1]), (x0*self.spacing[0], self.origin[1]), self.spacing, 
+                                        self.vp[x0:xf], self.space_order, self.nbl, self.fs)
+                
+                modelvp = self._create_model((xf-x0, self.shape[1]), (x0*self.spacing[0], self.origin[1]), self.spacing, 
+                                            vp[x0:xf], self.space_order, self.nbl, self.fs)
+                geometry = self._create_geometry(model,
+                                         self.src[0][isrc:isrc+1], self.src[1][:1], self.rec[0], self.rec[1], 
+                                         self.t0, self.tn, self.src_type, f0=self.f0, dt=self.dt)
+                # Re-create source (if wav is not None)
+                if self.wav is None:
+                    src = geometry.src
+                else:
+                    src = CustomSource(name='src', grid=model.grid,
+                                    wav=self.wav, npoint=1,
+                                    time_range=geometry.time_axis)
+                solver = AcousticWaveSolver(model, geometry,
+                                    space_order=self.space_order)
             # Update source location in geometry
             geometry.src_positions[0, :] = (self.src[0][isrc], self.src[1][isrc])
             src.coordinates.data[0, :] = (self.src[0][isrc], self.src[1][isrc])
@@ -517,16 +572,34 @@ class AcousticWave2D(NonlinearOperator):
             if computeloss and computegrad:
                 loss += lossgrad[0]
                 if isrc == 0:
-                    grad = lossgrad[1].data[:]
+                    if self.sub_gradient:
+                        grad = self._crop_model(lossgrad[1].data[:], self.nbl, self.fs)
+                        full_grad = np.zeros(self.shape, dtype=np.float64)
+                        full_grad[x0:xf] = grad.copy()
+                    else:
+                        grad = lossgrad[1].data[:]
                 else:
-                    grad += lossgrad[1].data[:]
+                    if self.sub_gradient:
+                        grad = self._crop_model(lossgrad[1].data[:], self.nbl, self.fs)
+                        full_grad[x0:xf] += grad.copy()
+                    else:
+                        grad += lossgrad[1].data[:]
             elif computeloss:
                 loss += lossgrad
             elif computegrad:
                 if isrc == 0:
-                    grad = lossgrad.data[:]
+                    if self.sub_gradient:
+                        grad = self._crop_model(lossgrad.data[:], self.nbl, self.fs)
+                        full_grad = np.zeros(self.shape, dtype=np.float64)
+                        full_grad[x0:xf] = grad.copy()
+                    else:
+                        grad = lossgrad.data[:]
                 else:
-                    grad += lossgrad[1].data[:]
+                    if self.sub_gradient:
+                        grad = self._crop_model(lossgrad.data[:], self.nbl, self.fs)
+                        full_grad[x0:xf] += grad.copy()
+                    else:
+                        grad += lossgrad.data[:]
             
         if self.clearcache:
                 clear_devito_cache()
@@ -539,8 +612,14 @@ class AcousticWave2D(NonlinearOperator):
                 grad = self.base_comm.allreduce(grad, op=MPI.SUM)
 
         # Postprocess loss and gradient
-        grad = self._crop_model(grad, self.nbl, self.fs)
-        vp = self._crop_model(modelvp.vp.data[:], self.nbl, self.fs)
+        
+        grad = self._crop_model(grad, self.nbl, self.fs) if not self.sub_gradient else full_grad
+        if self.sub_gradient:
+            modelvp_ = self._create_model(self.shape, self.origin, self.spacing, 
+                                        vp, self.space_order, self.nbl, self.fs)
+            vp = self._crop_model(modelvp_.vp.data[:], self.nbl, self.fs)
+        else:
+            vp = self._crop_model(modelvp.vp.data[:], self.nbl, self.fs)
         if postprocess is not None:
             loss, grad = postprocess(vp, loss, grad)
 
