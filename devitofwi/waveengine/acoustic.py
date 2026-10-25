@@ -613,14 +613,15 @@ class AcousticWave2D(NonlinearOperator):
 
         # Postprocess loss and gradient
         
-        grad = self._crop_model(grad, self.nbl, self.fs) if not self.sub_gradient else full_grad
+        if computegrad:
+            grad = self._crop_model(grad, self.nbl, self.fs) if not self.sub_gradient else full_grad
         if self.sub_gradient:
             modelvp_ = self._create_model(self.shape, self.origin, self.spacing, 
                                         vp, self.space_order, self.nbl, self.fs)
             vp = self._crop_model(modelvp_.vp.data[:], self.nbl, self.fs)
         else:
             vp = self._crop_model(modelvp.vp.data[:], self.nbl, self.fs)
-        if postprocess is not None:
+        if postprocess is not None and computeloss and computegrad:
             loss, grad = postprocess(vp, loss, grad)
 
         if computeloss and computegrad:
